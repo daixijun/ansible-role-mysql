@@ -1,0 +1,56 @@
+---
+- name: Download mysql-shell package
+  get_url:
+    url: "{{ mysql_shell_download_url }}"
+    dest: "{{ playbook_dir }}/files/{{ mysql_shell_download_url | basename }}"
+    mode: "0600"
+  run_once: true
+  delegate_to: localhost
+  become: false
+  check_mode: false
+  when:
+    - groups[mysql_inventory_group].index(inventory_hostname) == 0
+
+- name: Copy mysql-shell package to target server
+  copy:
+    src: "{{ playbook_dir }}/files/{{ mysql_shell_download_url | basename }}"
+    dest: /usr/local/src/{{ mysql_shell_download_url | basename }}
+    mode: "0600"
+    owner: root
+    group: root
+  check_mode: false
+
+- name: Install mysql-shell
+  yum:
+    name: /usr/local/src/{{ mysql_shell_download_url | basename }}
+    state: present
+
+- name: Create Innodb Cluster admin user
+  community.mysql.mysql_user:
+    name: "{{ mysql_innodb_cluster_username }}"
+    host: "%"
+    password: "{{ mysql_innodb_cluster_password }}"
+    priv: "*.*:ALL,GRANT"
+    state: "present"
+  run_once: true
+  delegate_to: "{{ _primary_node }}"
+  tags:
+    - molecule-idempotence-notest
+    - skip_ansible_lint
+
+- name: Create initcluster.js
+  template:
+    src: initcluster.js.j2
+    dest: /usr/share/mysqlsh/initcluster.js
+    mode: "0600"
+
+- name: Initial Innodb Cluster
+  shell: /usr/bin/mysqlsh --no-password --js --file=/usr/share/mysqlsh/initcluster.js
+  register: _init_status
+  changed_when: "'InnoDB Cluster create successful' in _init_status.stdout"
+  run_once: true
+  delegate_to: "{{ _primary_node }}"
+  args:
+    warn: false
+  tags:
+    - skip_ansible_lint

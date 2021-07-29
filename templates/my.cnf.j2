@@ -1,0 +1,215 @@
+{{ ansible_managed | comment }}
+[mysqld]
+# Connection and Thread variables
+port                            = {{ mysql_port }}
+bind_address                    = {{ mysql_bind_address }}
+back_log                        = {{ mysql_back_log }}
+
+pid_file                        = {{ mysql_pidfile }}
+socket                          = {{ mysql_socket }}
+mysqlx_socket                   = {{ mysql_socket | dirname }}/mysqlx.sock
+basedir                         = {{ mysql_basedir }}
+datadir                         = {{ mysql_datadir }}
+tmpdir                          = /tmp/
+default_authentication_plugin   = mysql_native_password # 兼容老版本认证方式
+default_storage_engine          = INNODB
+character_set_server            = {{ mysql_character_set_server }}
+collation_server                = {{ mysql_collation_server }}
+max_connections                 = {{ mysql_max_connections }}  # 总最大连接数，预留5个用于紧急情况下备用
+max_user_connections            = {{ mysql_max_user_connections }}  # 最大用户连接数
+max_connect_errors              = {{ mysql_max_connect_errors }}
+max_allowed_packet              = {{ mysql_max_allowed_packet }}
+interactive_timeout             = {{ mysql_interactive_timeout }}
+wait_timeout                    = {{ mysql_wait_timeout }}
+thread_cache_size               = 505
+transaction_isolation           = READ-COMMITTED
+lower_case_table_names          = 1
+sql_mode                        = {{ mysql_sql_mode | quote }}
+ssl
+
+# 优化 Session 级别 Buffer 大小，减小内存占用率
+read_buffer_size                = 4M
+read_rnd_buffer_size            = 4M
+sort_buffer_size                = 4M
+join_buffer_size                = 4M
+sort_buffer_size                = 2M
+tmp_table_size                  = 32M
+max_heap_table_size             = 32M
+
+# Other buffers and caches
+table_definition_cache                       = 1400
+table_open_cache                             = 2000
+table_open_cache_instances                   = 16
+
+skip_name_resolve               = {{ mysql_skip_name_resolve }}
+
+# 时区
+default_time_zone               = "{{ mysql_default_time_zone | default('+8:00') }}"
+
+# INNODB 优化
+innodb_file_per_table           = {{ mysql_innodb_file_per_table }}  # 独立表空间
+innodb_log_file_size            = {{ mysql_innodb_log_file_size }}
+innodb_buffer_pool_size         = {{ mysql_innodb_buffer_pool_size }}
+innodb_buffer_pool_instances    = {{ mysql_innodb_buffer_pool_instances }}
+innodb_flush_method             = O_DIRECT
+
+innodb_status_file = 1
+# 注意: 开启 innodb_status_output & innodb_status_output_locks 后, 可能会导致log-error文件增长过快
+innodb_status_output = 1
+innodb_status_output_locks = 1
+
+# innodb monitor settings
+innodb_monitor_enable = "module_innodb"
+innodb_monitor_enable = "module_server"
+innodb_monitor_enable = "module_dml"
+innodb_monitor_enable = "module_ddl"
+innodb_monitor_enable = "module_trx"
+innodb_monitor_enable = "module_os"
+innodb_monitor_enable = "module_purge"
+innodb_monitor_enable = "module_log"
+innodb_monitor_enable = "module_lock"
+innodb_monitor_enable = "module_buffer"
+innodb_monitor_enable = "module_index"
+innodb_monitor_enable = "module_ibuf_system"
+innodb_monitor_enable = "module_buffer_page"
+innodb_monitor_enable = "module_adaptive_hash"
+
+# pfs settings
+performance_schema = 1
+#performance_schema_instrument = '%memory%=on'
+performance_schema_instrument = '%lock%=on'
+
+# prevent use of non-transactional storage engines
+disabled_storage_engines        = "MyISAM,BLACKHOLE,FEDERATED,ARCHIVE"
+
+# Binary logging and Replication
+server_id                           = {{ groups[mysql_inventory_group].index(inventory_hostname) + 1 }}
+log_timestamps                      = system
+binlog-row-image                    = FULL
+binlog-rows-query-log-events        = ON
+log-bin-trust-function-creators     = TRUE
+log_bin                             = mysql-bin
+binlog_format                       = ROW
+binlog_checksum                     = NONE
+binlog_expire_logs_seconds          = 604800 # 7 days, 8.0以前叫 expire_logs_days,只能精确到天
+binlog_transaction_dependency_tracking  = WRITESET
+binlog_cache_size                   = 8M
+binlog_stmt_cache_size              = 1M
+max_binlog_size                     = 128M
+sync_binlog                         = 1
+relay-log                           = relay-bin
+relay-log-index                     = relay-bin-index
+log_slow_slave_statements           = 1  # 在slave上开启慢查询日志，query时间等于 long_query_time
+
+# Slow Query log
+slow_query_log                  = 1
+long_query_time                 = 10
+log_queries_not_using_indexes   = 1
+slow_query_log_file             = {{ mysql_logdir | regex_replace("/$") }}/mysqld.slow.log
+min_examined_row_limit          = 100
+general_log                     = 0
+general_log_file                = {{ mysql_logdir | regex_replace("/$") }}/mysqld.log
+
+# Error log
+log_error                       = {{ mysql_logdir | regex_replace("/$") }}/mysqld.error.log
+log_error_verbosity             = 3
+relay_log                       = mysql-relay
+relay_log_purge                 = 1
+{% if mysql_version is version('8.0.23', '<') %}
+master_info_repository          = TABLE
+relay_log_info_repository       = TABLE
+{% endif %}
+relay_log_recovery              = ON
+log_slave_updates               = ON
+
+# Security variables
+local_infile                                 = 0
+allow_suspicious_udfs                        = false
+
+gtid_mode                                    = ON  # 开启 GTID 功能
+enforce_gtid_consistency                     = ON  # 开启强一致性
+
+# 基于主键的并行复制
+slave_parallel_type                          = LOGICAL_CLOCK
+slave_preserve_commit_order                  = 1
+slave_parallel_workers                       = {{ ansible_processor_vcpus * 2 }}
+
+{% if mysql_cluster_type == 'ms' %}
+# for semi sync
+plugin-load = "rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
+loose-rpl-semi-sync-master-enabled = 1
+loose-rpl-semi-sync-slave-enabled = 1
+
+{% endif %}
+{% if mysql_audit_log %}
+plugin-load                                  = audit_log.so
+audit_log_connection_policy                  = 'ALL'
+audit_log_exclude_accounts                   = NULL
+audit_log_policy                             = 'ALL'
+audit_log_statement_policy                   = 'ALL'
+audit_log_strategy                           = 'SEMISYNCHRONOUS'
+
+{% endif %}
+{% if mysql_version is version('8.0.17', operator='>=') %}
+plugin-load                                 = mysql_clone.so        # 加载clone插件
+# clone                                        = FORCE_PLUS_PERMANENT  # 强制加载clone插件，如果插件初始化失败，则mysqld会启动失败
+
+{% endif %}
+{% if mysql_cluster_type == 'mgr' %}
+# Mysql Group Replication
+plugin-load                                                 = group_replication.so
+transaction_write_set_extraction                            = XXHASH64
+loose-group_replication_group_name                          = "{{ mysql_group_replication_name | lower }}" # 可在库里使用SELECT UUID()生成，一个组的所有机器都相同。
+loose-group_replication_start_on_boot                       = OFF
+loose-group_replication_bootstrap_group                     = OFF
+loose-group_replication_consistency                         = EVENTUAL
+{% set group_replication_ip_var = 'group_replication_ip_whitelist' if mysql_version is version('8.0.22', '<') else 'group_replication_ip_allowlist' %}
+{% if mysql_interface %}
+loose-group_replication_local_address                       = "{{ hostvars[inventory_hostname]['ansible_'+mysql_interface].ipv4.address }}:33061"
+loose-{{ group_replication_ip_var }}                        = "{{ groups[mysql_inventory_group] | map('extract', hostvars, ['ansible_'+mysql_interface, 'ipv4', 'address']) | list | join(',') }}"
+loose-group_replication_group_seeds                         = "{{ groups[mysql_inventory_group] | map('extract', hostvars, ['ansible_'+mysql_interface, 'ipv4', 'address']) | map('regex_replace', '(.+)', '\\1:33061') | list | join(',') }}"
+{% else %}
+loose-group_replication_local_address                       = "{{ ansible_default_ipv4.address }}:33061"
+loose-{{ group_replication_ip_var }}                        = "{{ groups[mysql_inventory_group] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list | join(',') }}"
+loose-group_replication_group_seeds                         = "{{ groups[mysql_inventory_group] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '(.+)', '\\1:33061') | list | join(',') }}"
+{% endif %}
+loose-group_replication_autorejoin_tries                    = 3
+# 参考: https://mp.weixin.qq.com/s/NgXg0d6Pv1Fq0eLdULH6gA
+loose-group_replication_member_expel_timeout                = 10
+loose-group_replication_recovery_retry_count                = 10
+loose-group_replication_recovery_reconnect_interval         = 60
+loose-group_replication_unreachable_majority_timeout        = 10
+loose-group_replication_ssl_mode                            = REQUIRED
+loose-group_replication_recovery_use_ssl                    = 1
+loose-group_replication_flow_control_mode                   = DISABLED
+{% if mysql_group_replication_single_primary_mode %}
+loose-group_replication_auto_increment_increment            = 1  # 默认为7
+loose-group_replication_single_primary_mode                 = ON # 单主模式,默认为 ON
+# 级联外键，单主模式下必须关闭，多主模式下不能完全支持
+loose-group_replication_enforce_update_everywhere_checks    = OFF
+{% else %}
+loose-group_replication_auto_increment_increment            = 7  # 默认为7
+loose-group_replication_single_primary_mode                 = OFF # 单主模式,默认为 ON
+loose-group_replication_enforce_update_everywhere_checks    = ON
+{% endif %}
+{% endif %}
+
+report_host                             = {{ hostvars[inventory_hostname]['ansible_'+mysql_interface].ipv4.address if mysql_interface else ansible_default_ipv4.address }}
+report_port                             = {{ mysql_port }}
+
+[client]
+default_character_set           = {{ mysql_character_set_server }}
+port                            = {{ mysql_port }}
+socket                          = {{ mysql_socket }}
+
+[mysql]
+default_character_set           = {{ mysql_character_set_server }}
+port                            = {{ mysql_port }}
+socket                          = {{ mysql_socket }}
+prompt                          = "\u@\h \D [\d]> "
+no_auto_rehash
+
+[mysqldump]
+max_allowed_packet              = 16M
+port                            = {{ mysql_port }}
+socket                          = {{ mysql_socket }}

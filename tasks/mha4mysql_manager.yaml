@@ -1,0 +1,58 @@
+---
+- name: mysql | mha | manager | Copy rpm package to target server
+  copy:
+    src: "{{ playbook_dir }}/files/{{ mysql_mha_manager_download_url | basename }}"
+    dest: "/usr/local/src/{{ mysql_mha_manager_download_url | basename }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: mysql | mha | manager | Installing
+  yum:
+    name: /usr/local/src/{{ mysql_mha_manager_download_url | basename }}
+    state: present
+
+- name: mysql | mha | manager | Create mha4mysql manager configuration
+  template:
+    src: mha.cnf.j2
+    dest: "{{ mysql_mha_config_dir }}/masterha.cnf"
+    owner: root
+    group: root
+    mode: "0640"
+  notify:
+    - restart mha4mysql manager
+
+- name: mysql | mha | manager | Generate failover scripts
+  template:
+    src: "scripts/{{ item }}.j2"
+    dest: "/usr/bin/{{ item }}"
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - master_ip_failover
+    - master_ip_online_change
+    - power_manager
+    - send_report
+
+- name: mysql | mha | manager | MasterHA check ssh
+  command:
+    cmd: /usr/bin/masterha_check_ssh --conf=/etc/mha/masterha.cnf
+    warn: false
+  changed_when: false
+
+- name: mysql | mha | manager | MasterHA check repl
+  command:
+    cmd: /usr/bin/masterha_check_repl --conf=/etc/mha/masterha.cnf
+    warn: false
+  changed_when: false
+
+- name: mysql | mha | manager | Create startup for systemd
+  template:
+    src: mha4mysql-manager.service.j2
+    dest: /etc/systemd/system/mha4mysql-manager.service
+    owner: root
+    group: root
+    mode: "0640"
+  notify:
+    - restart mha4mysql manager

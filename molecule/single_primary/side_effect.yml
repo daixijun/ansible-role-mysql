@@ -1,0 +1,13 @@
+---
+- name: Side Effect
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Restart Primary
+      community.mysql.mysql_query:
+        query:
+          - STOP GROUP_REPLICATION
+          - START GROUP_REPLICATION
+      run_once: true
+      when:
+        - ansible_play_hosts.index(inventory_hostname) == 0

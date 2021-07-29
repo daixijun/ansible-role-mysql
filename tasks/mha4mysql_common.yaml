@@ -1,0 +1,112 @@
+---
+- name: mysql | mha | common | Installing mha4mysql dependencies
+  yum:
+    name:
+      - perl-CPAN
+      - perl-DBD-MySQL
+      - perl-Config-Tiny
+      - perl-Log-Dispatch
+      - perl-Net-Telnet
+      - perl-JSON
+      - perl-libwww-perl
+      - perl-LWP-Protocol-https
+    state: present
+    update_cache: true
+
+- name: mysql | mha | common | Create mha4mysql directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+  loop:
+    - "{{ mysql_mha_config_dir }}"
+    - "{{ mysql_mha_manager_workdir }}"
+
+- name: mysql | mha | common | Enable root to login remotely
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^PermitRootLogin"
+    insertafter: "^#PermitRootLogin"
+    line: "PermitRootLogin without-password"
+    backup: true
+    state: present
+    validate: /usr/sbin/sshd -t -f %s
+  register: _mysql_enable_root_login_remotely
+
+- name: mysql | mha | common | Restart sshd service
+  systemd:
+    name: sshd.service
+    state: restarted
+    daemon_reload: true
+  when:
+    - _mysql_enable_root_login_remotely is changed
+
+- name: mysql | mha | common | Watting for sshd service started
+  wait_for:
+    host: 0.0.0.0
+    port: "{{ mysql_mha_ssh_port }}"
+    state: started
+    timeout: 10
+
+- name: mysql | mha | common | Create {{ mysql_mha_ssh_user }} .ssh directory
+  file:
+    path: "{{ (mysql_mha_ssh_user == 'root') | ternary('/root', '/home/'+mysql_mha_ssh_user) }}/.ssh"
+    owner: "{{ mysql_mha_ssh_user }}"
+    group: "{{ mysql_mha_ssh_user }}"
+    mode: "0700"
+    state: directory
+
+- name: mysql | mha | common | Generate openssh keypair
+  community.crypto.openssh_keypair:
+    path: "{{ ansible_env.HOME }}/.ssh/id_rsa"
+    type: rsa
+    size: 4096
+    state: present
+  check_mode: false
+  register: _keypair
+
+- name: mysql | mha | common | Copy public key to remote server
+  ansible.posix.authorized_key:
+    user: "{{ mysql_mha_ssh_user }}"
+    state: present
+    key: "{{ _keypair.public_key }}"
+  delegate_to: "{{ item }}"
+  loop: "{{ ansible_play_batch }}"
+
+- name: mysql | mha | common | Download mha4mysql manager and node rpm packages
+  get_url:
+    url: "{{ item }}"
+    dest: "{{ playbook_dir }}/files/{{ item | basename }}"
+    timeout: 300
+    mode: "0600"
+  become: false
+  run_once: true
+  delegate_to: localhost
+  loop:
+    - "{{ mysql_mha_manager_download_url }}"
+    - "{{ mysql_mha_node_download_url }}"
+
+- name: mysql | mha | common | Checking master vip
+  shell:
+    cmd: ip add show {{ mysql_interface if mysql_interface|length >0 else ansible_default_ipv4.interface }}
+    warn: false
+  delegate_to: "{{ _primary_node }}"
+  changed_when: false
+  check_mode: false
+  run_once: true
+  register: _master_vip_status
+  tags:
+    - skip_ansible_lint
+
+- name: mysql | mha | common | Adding vip to master node
+  shell:
+    cmd: ip address add {{ mysql_mha_vip }} dev {{ mysql_interface if mysql_interface|length >0 else ansible_default_ipv4.interface }}
+    warn: false
+  delegate_to: "{{ _primary_node }}"
+  run_once: true
+  when:
+    - "mysql_mha_vip not in _master_vip_status.stdout"
+  tags:
+    - skip_ansible_lint

@@ -1,0 +1,88 @@
+---
+mysql_version: 8.0.25
+mysql_download_url: https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-{{ mysql_version }}-el{{ ansible_distribution_major_version }}-x86_64.tar.gz
+mysql_shell_download_url: https://cdn.mysql.com/Downloads/MySQL-Shell/mysql-shell-{{ mysql_version }}-1.el{{ ansible_distribution_major_version }}.x86_64.rpm
+mysql_mha_version: 0.58
+mysql_mha_manager_download_url: https://github.com/yoshinorim/mha4mysql-manager/releases/download/v{{ mysql_mha_version }}/mha4mysql-manager-{{ mysql_mha_version }}-0.el7.centos.noarch.rpm
+mysql_mha_node_download_url: https://github.com/yoshinorim/mha4mysql-node/releases/download/v{{ mysql_mha_version }}/mha4mysql-node-{{ mysql_mha_version }}-0.el7.centos.noarch.rpm
+mysql_inventory_group: mysql # Ansible 主机清单中的组名， 默认为 `mysql`
+mysql_upgrade: false
+
+# 全局设置
+mysql_basedir: /usr/local/mysql
+mysql_datadir: /data/mysql
+mysql_logdir: /var/log/mysqld
+mysql_pidfile: /var/run/mysqld/mysqld.pid
+mysql_socket: /var/run/mysqld/mysqld.sock
+mysql_port: 3306
+mysql_bind_address: 0.0.0.0
+mysql_back_log: 8192
+mysql_root_password: ""
+mysql_interface: "" # 指定网卡，默认使用除lo外的第一张
+mysql_sql_mode: ""
+mysql_default_time_zone: "+8:00"
+mysql_character_set_server: utf8mb4
+mysql_collation_server: utf8mb4_general_ci
+mysql_max_allowed_packet: 16M
+mysql_max_connections: 1005
+mysql_max_user_connections: 1000
+mysql_max_connect_errors: 200
+mysql_skip_name_resolve: "ON"
+mysql_wait_timeout: 28800
+mysql_interactive_timeout: 28800
+
+# 集群类型:
+## mgr (Mysql Group Replication): 组复制
+## ms (Master-Slave): 主从复制
+mysql_cluster_type: mgr
+mysql_cluster_name: default # 集群名称:  Innodb Cluster Name / ReplicaSet Name
+
+# MHA 配置
+mysql_mha_enabled: false # 是否开启基于 mha 的主从复制
+mysql_mha_config_dir: /etc/mha
+mysql_mha_manager_workdir: /var/log/mha
+mysql_mha_user: mha
+mysql_mha_password: ""
+mysql_mha_ssh_user: root
+mysql_mha_ssh_port: 22
+mysql_mha_repl_user: "{{ mysql_repl_user }}"
+mysql_mha_repl_password: "{{ mysql_repl_password }}"
+mysql_mha_ping_interval: 2
+mysql_mha_vip: ""
+mysql_mha_wechat_token: "" # 企业微信机器人Key, 用于发送报警通知
+
+# 是否开启审计日志
+mysql_audit_log: false
+
+mysql_repl_user: repl
+mysql_repl_password: ""
+# MGR
+mysql_group_replication_name: "" # 通过 uuidgen 生成
+mysql_group_replication_single_primary_mode: true
+mysql_group_replication_ssl: false # `mysql_ssl_enable` 为 true 时有效，将与实例使用相同的证书
+
+# Innodb Cluster配置
+mysql_innodb_cluster_enable: true # 是否开启 Innodb Cluster
+mysql_innodb_cluster_username: "ic" # 用于创建和管理 Innodb Cluster 的账号，需要具备 `ALL WITH GRANT OPTION` 权限
+mysql_innodb_cluster_password: "" # 管理密码
+
+# Innodb 配置优化
+mysql_innodb_buffer_pool_size: "{{ (ansible_memtotal_mb * 0.5 // 1024) | int | regex_replace('^(.*)$', '\\1G') }}"
+mysql_innodb_buffer_pool_instances: "{{ '4' if ansible_memtotal_mb <= 1024 * 64 else '8'}}"
+mysql_innodb_file_per_table: 1
+mysql_innodb_log_file_size: 256M
+
+# ProxySQL 相关配置
+mysql_proxysql_config: false
+mysql_proxysql_monitor_username: monitor
+mysql_proxysql_monitor_password: ""
+
+mysql_databases: []
+# - name: db1
+#   encoding: utf8mb4
+#   collation: utf8mb4_general_ci
+mysql_users: []
+# - name: username
+#   host: '%'
+#   password: secret
+#   priv: 'db1.*:ALL'

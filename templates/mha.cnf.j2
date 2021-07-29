@@ -1,0 +1,37 @@
+{{ ansible_managed | comment }}
+[server default]
+manager_workdir={{ mysql_mha_manager_workdir }}
+manager_log={{ mysql_mha_manager_workdir }}/manager.log
+master_binlog_dir={{ mysql_datadir }}
+user={{ mysql_mha_user }}
+password={{ mysql_mha_password }}
+ping_interval={{ mysql_mha_ping_interval }}
+repl_user={{ mysql_mha_repl_user }}
+repl_password={{ mysql_mha_repl_password }}
+ssh_user={{ mysql_mha_ssh_user }}
+{% if mysql_mha_vip|length > 0 %}
+master_ip_failover_script=/usr/bin/master_ip_failover
+master_ip_online_change_script=/usr/bin/master_ip_online_change
+{% endif %}
+## shutdown_script 这个脚本会报以下错误,暂时先停用:
+## Undefined subroutine &main::FIXME_xxx called at /usr/bin/power_manager line 387
+#shutdown_script= /usr/bin/power_manager
+{% if mysql_mha_wechat_token|length > 0 %}
+report_script=/usr/bin/send_report
+{% endif %}
+secondary_check_script=/usr/bin/masterha_secondary_check {{ groups[mysql_inventory_group] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | map('regex_replace', '(.+)', '-s \\1') | list | join(' ') }}
+master_pid_file={{ mysql_pidfile }}
+
+{% for host in groups[mysql_inventory_group] %}
+# [server{{ loop.index }}]
+[server-{{ hostvars[host].inventory_hostname }}]
+hostname={{ hostvars[host].inventory_hostname }}
+ip={{ hostvars[host].ansible_default_ipv4.address }}
+port=3306
+ssh_host={{ hostvars[host].inventory_hostname }}
+ssh_ip={{ hostvars[host].ansible_default_ipv4.address }}
+ssh_port=22
+# {{ loop.last | ternary('no_master', 'candidate_master') }}=1
+candidate_master=1
+
+{% endfor %}

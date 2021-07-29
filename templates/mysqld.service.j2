@@ -1,0 +1,30 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=MySQL Server
+Documentation=man:mysqld(8)
+Documentation=http://dev.mysql.com/doc/refman/en/using-systemd.html
+After=network.target
+After=syslog.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+User=mysql
+Group=mysql
+Type=notify
+# Disable service start and stop timeout logic of systemd for mysqld service.
+TimeoutSec=0
+# Set environment variable MYSQLD_PARENT_PID. This is required for restart.
+Environment=MYSQLD_PARENT_PID=1
+Environment=LD_PRELOAD=/lib64/libjemalloc.so
+# EnvironmentFile=-/etc/sysconfig/mysql
+# Start main service
+ExecStart={{ mysql_basedir }}/bin/mysqld --defaults-file={{ mysql_basedir }}/etc/my.cnf
+# Sets open_files_limit
+LimitNOFILE=10000
+Restart=on-failure
+RestartPreventExitStatus=1
+PrivateTmp=false
+PermissionsStartOnly=true
+RestartPreventExitStatus=1

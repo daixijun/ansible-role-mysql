@@ -1,0 +1,59 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+  any_errors_fatal: yes
+  tasks:
+    - name: Gather service facts
+      service_facts:
+      no_log: true
+
+    - name: Assert mysql service state
+      assert:
+        that:
+          - ansible_facts.services['mysqld.service'].state == 'running'
+          - ansible_facts.services['mysqld.service'].status == 'enabled'
+
+    - name: Stat socket file
+      stat:
+        path: /var/run/mysqld/mysqld.sock
+        get_checksum: no
+      register: socket_stat
+      no_log: yes
+
+    - name: Assert that the socket file is in the expected state
+      assert:
+        that:
+          - socket_stat.stat.exists
+          - socket_stat.stat.issock
+          - socket_stat.stat.mode == "0777"
+          - socket_stat.stat.pw_name == "mysql"
+          - socket_stat.stat.gr_name == "mysql"
+
+    - name: Gather mysql info
+      community.mysql.mysql_info:
+        filter:
+          - databases
+          - users
+        return_empty_dbs: true
+        exclude_fields: db_size
+      register: _info
+      no_log: true
+
+    - name: Assert database db1 present
+      assert:
+        that:
+          - "'db1' in _info.databases"
+
+    - name: Check user are exists
+      assert:
+        that:
+          - "'ic' in _info.users['%']"
+          - "'user1' in _info.users['%']"
+
+    - name: Query replication group members
+      community.mysql.mysql_query:
+        query: "SELECT * FROM performance_schema.replication_group_members WHERE MEMBER_STATE = 'ONLINE'"
+      register: _gr_members
+      failed_when: _gr_members.rowcount[0] != groups['mysql']|length

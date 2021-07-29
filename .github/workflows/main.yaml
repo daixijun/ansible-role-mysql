@@ -1,0 +1,48 @@
+---
+name: build
+on: [push]
+jobs:
+  molecule:
+    runs-on: ubuntu-latest
+    env:
+      PY_COLORS: 1 # allows molecule colors to be passed to GitHub Actions
+      ANSIBLE_FORCE_COLOR: 1 # allows ansible colors to be passed to GitHub Actions
+    strategy:
+      matrix:
+        os: [centos7]
+        mysql-version: [8.0.25]
+        scenario: [single_primary, multi_primary, master_slave, mha]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v1
+        with:
+          python-version: 3.x
+          architecture: x64
+      - uses: actions/cache@v1
+        id: cache
+        with:
+          path: molecule/${{ matrix.scenario }}/files/
+          key: ${{ matrix.os }}-mysql-${{ matrix.mysql-version }}
+          restore-keys: |
+            ${{ matrix.os }}-mysql-${{ matrix.mysql-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible "molecule[docker,lint]"
+          ansible-galaxy collection install -r requirements.yml
+      - name: Test with molecule
+        env:
+          MOLECULE_DISTRO: ${{ matrix.os }}
+          MYSQL_VERSION: ${{ matrix.mysql-version }}
+          MOLECULE_SCENARIO: ${{ matrix.scenario }}
+          MOLECULE_MYSQL_DOWNLOAD_URL: "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-${{ matrix.mysql-version }}-el7-x86_64.tar.gz"
+        run: |
+          cd ..
+          ln -sf ansible-role-mysql mysql
+          cd mysql
+          molecule test --scenario-name ${MOLECULE_SCENARIO}
+      - name: Publish role to Galaxy
+        if: success()
+        run: ansible-galaxy role import --api-key ${{ secrets.ANSIBLE_GALAXY_API_KEY }} $(echo $GITHUB_REPOSITORY | cut -d/ -f1) $(echo $GITHUB_REPOSITORY | cut -d/ -f2)

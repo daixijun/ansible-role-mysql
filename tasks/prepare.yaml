@@ -1,0 +1,109 @@
+---
+- name: Ensure mysql group
+  group:
+    name: mysql
+    system: yes
+    state: present
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+
+- name: Ensure mysql user
+  user:
+    group: mysql
+    name: mysql
+    system: yes
+    comment: mysql daemon user
+    create_home: false
+    shell: /bin/false
+    state: present
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+
+- name: Disable Transparent Huge Pages (THP)
+  shell:
+    cmd: echo never > {{ item }}
+    warn: false
+  changed_when: false
+  ignore_errors: true
+  loop:
+    - /sys/kernel/mm/transparent_hugepage/enabled
+    - /sys/kernel/mm/transparent_hugepage/defrag
+
+- name: Disable Transparent Huge Pages (THP) forever
+  blockinfile:
+    marker: "# {mark} Disable Transparent Huge Pages"
+    block: |
+      if test -f /sys/kernel/mm/transparent_hugepage/enabled; then
+        echo never > /sys/kernel/mm/transparent_hugepage/enabled
+      fi
+      if test -f /sys/kernel/mm/transparent_hugepage/defrag; then
+        echo never > /sys/kernel/mm/transparent_hugepage/defrag
+      fi
+    path: /etc/rc.local
+    state: present
+
+- name: Installing mysql dependencies
+  yum:
+    name: "{{ mysql_dependencies }}"
+    state: present
+    update_cache: true
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+
+- name: Query group replicaton primary node
+  community.mysql.mysql_query:
+    query: "SELECT member_host FROM performance_schema.replication_group_members WHERE member_role = 'PRIMARY' LIMIT 1"
+  register: _gr_primary_status
+  # run_once: true
+  # delegate_to: "{{ hostvars[groups[mysql_inventory_group][0]]['inventory_hostname'] }}"
+  ignore_errors: true
+  changed_when: false
+  check_mode: false
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+    - mysql_cluster_type == 'mgr'
+    # - groups[mysql_inventory_group].index(inventory_hostname) == 0
+
+- name: Set primary node (MGR)
+  vars:
+    primary_member_host: "{{ _gr_primary_status.query_result[0][0].member_host }}"
+  set_fact:
+    _primary_node: "{{ hostvars | dict2items | rejectattr('value._gr_primary_status', 'undefined') | selectattr('value.ansible_facts.default_ipv4.address', 'equalto', primary_member_host) | map(attribute='key') | first }}"
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+    - mysql_cluster_type == 'mgr'
+    - _gr_primary_status is not skipped
+    - _gr_primary_status is not failed
+    - _gr_primary_status.rowcount[0] > 0
+
+- name: Query Primay-Replica primary node
+  community.mysql.mysql_query:
+    query: SHOW {{ mysql_version is version('8.0.22', '>=') | ternary('REPLICAS', 'SLAVE HOSTS') }}
+  register: _ms_primary_status
+  ignore_errors: true
+  changed_when: false
+  check_mode: false
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+    - mysql_cluster_type == 'ms'
+
+- name: Set primary node (Primary Replica)
+  set_fact:
+    _primary_node: "{{ hostvars | dict2items | rejectattr('value._ms_primary_status.rowcount', 'undefined') | selectattr('value._ms_primary_status.rowcount', 'ne', [0]) | map(attribute='key') | first }}"
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+    - mysql_cluster_type == 'ms'
+    - _ms_primary_status is not skipped
+    - _ms_primary_status is not failed
+
+- name: Set primary node (default)
+  set_fact:
+    _primary_node: "{{ hostvars[groups[mysql_inventory_group][0]]['inventory_hostname'] }}"
+  when:
+    - _primary_node is undefined or _primary_node|length == 0
+
+- name: Set install prefix
+  set_fact:
+    mysql_versioned_basedir: /usr/local/{{ mysql_download_url | basename | regex_replace('.tar.*$') }}
+    mysql_package_name: "{{ mysql_download_url | basename }}"
+    _mysql_term: "{{ (mysql_version is version('8.0.22', operator='>=')) | ternary('Replica', 'Slave') }}"

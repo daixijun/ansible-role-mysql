@@ -1,0 +1,51 @@
+---
+- name: Ensure mha manager user
+  community.mysql.mysql_user:
+    name: "{{ mysql_mha_user | default('mha') }}"
+    host: "%"
+    password: "{{ mysql_mha_password }}"
+    priv: "*.*:ALL"
+    sql_log_bin: true
+    state: present
+  tags:
+    - molecule-idempotence-notest
+  when:
+    - mysql_cluster_type == 'ms'
+    - mysql_mha_enabled|bool
+
+- name: Create proxysql monitor account
+  community.mysql.mysql_user:
+    name: "{{ mysql_proxysql_monitor_username }}"
+    password: "{{ mysql_proxysql_monitor_password }}"
+    host: "%"
+    priv:
+      "*.*": USAGE,REPLICATION CLIENT
+      "sys.*": SELECT
+    state: present
+  run_once: true
+  delegate_to: "{{ _primary_node }}"
+  when:
+    - mysql_proxysql_config|bool
+  tags:
+    - molecule-idempotence-notest
+
+- name: Ensure business users
+  community.mysql.mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host | default('%') }}"
+    password: "{{ item.password | default(omit) }}"
+    encrypted: "{{ item.encrypted | default(omit) }}"
+    priv: "{{ item.priv | default(omit) }}"
+    append_privs: "{{ item.append_privs | default(omit) }}"
+    update_password: "{{ item.update_password | default(omit) }}"
+    plugin: "{{ item.plugin | default(omit) }}"
+    plugin_hash_string: "{{ item.plugin_hash_string | default(omit) }}"
+    plugin_auth_string: "{{ item.plugin_auth_string | default(omit) }}"
+    resource_limits: "{{ item.resource_limits | default(omit) }}"
+    tls_requires: "{{ item.tls_requires | default(omit) }}"
+    state: "{{ item.state | default(omit) }}"
+  loop: "{{ mysql_users }}"
+  when:
+    - mysql_users|length > 0
+  tags:
+    - molecule-idempotence-notest

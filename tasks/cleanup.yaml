@@ -1,0 +1,5 @@
+---
+- name: Cleanup
+  file:
+    path: /tmp/gr_member_routing_candidate_status.sql
+    state: absent

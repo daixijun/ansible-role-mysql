@@ -1,0 +1,70 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker
+# lint: |
+#   set -e
+#   ansible-lint -v
+platforms:
+  - name: mysql1
+    image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    pre_build_image: true
+    groups:
+      - mha
+    children:
+      - mysql
+      - mha_node
+  - name: mysql2
+    image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    pre_build_image: true
+    purge_networks: false
+    groups:
+      - mha
+    children:
+      - mysql
+      - mha_node
+  - name: mysql3
+    image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    pre_build_image: true
+    purge_networks: false
+    groups:
+      - mha
+    children:
+      - mysql
+      - mha_node
+  - name: mha4mysql-manager
+    image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    pre_build_image: true
+    purge_networks: false
+    groups:
+      - mha
+    children:
+      - mha_manager
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      mysql:
+        mysql_download_url: ${MOLECULE_MYSQL_DOWNLOAD_URL}
+  config_options:
+    defaults:
+      verbosity: 2
+verifier:
+  name: ansible

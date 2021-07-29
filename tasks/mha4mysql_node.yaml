@@ -1,0 +1,13 @@
+---
+- name: mysql | mha | node | Copy rpm package to target server
+  copy:
+    src: "{{ playbook_dir }}/files/{{ mysql_mha_node_download_url | basename }}"
+    dest: "/usr/local/src/{{ mysql_mha_node_download_url | basename }}"
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: mysql | mha | node | Installing
+  yum:
+    name: /usr/local/src/{{ mysql_mha_node_download_url | basename }}
+    state: present

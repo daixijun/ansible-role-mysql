@@ -1,0 +1,11 @@
+---
+- name: Ensure business databases
+  community.mysql.mysql_db:
+    name: "{{ item.name }}"
+    collation: "{{ item.collation | default('utf8mb4_general_ci') }}"
+    encoding: "{{ item.encoding | default('utf8mb4') }}"
+    single_transaction: "{{ item.single_transaction | default(omit) }}"
+    state: "{{ item.state | default('present') }}"
+  loop: "{{ mysql_databases }}"
+  when:
+    - mysql_databases|length > 0

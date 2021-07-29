@@ -1,0 +1,25 @@
+---
+- name: restart mysql (Innodb Cluster/Group Replication)
+  listen: restart mysql
+  include_tasks:
+    file: restart_mgr.yaml
+    apply:
+      delegate_to: "{{ item }}"
+  run_once: true
+  loop: "{{ ansible_play_hosts }}"
+  when:
+    - mysql_cluster_type in ['mgr', 'gr']
+
+- name: restart mysql (Primary-Replicas)
+  listen: restart mysql
+  include_tasks:
+    file: restart_primary_replica.yaml
+  when:
+    - mysql_cluster_type in ['ms', 'pr', 'ps']
+
+- name: restart mha4mysql manager
+  systemd:
+    name: mha4mysql-manager.service
+    daemon_reload: true
+    state: restarted
+    enabled: true

@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+
+#  Copyright (C) 2011 DeNA Co.,Ltd.
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#  Foundation, Inc.,
+#  51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+## Note: This is a sample script and is not complete. Modify the script based on your environment.
+
+use strict;
+use warnings FATAL => 'all';
+use utf8;
+use LWP::UserAgent ();
+use IO::Socket::SSL;
+use JSON;
+
+use Getopt::Long;
+
+#new_master_host and new_slave_hosts are set only when recovering master succeeded
+my ( $dead_master_host, $new_master_host, $new_slave_hosts, $subject, $body, $conf );
+GetOptions(
+  'orig_master_host=s' => \$dead_master_host,
+  'new_master_host=s'  => \$new_master_host,
+  'new_slave_hosts=s'  => \$new_slave_hosts,
+  'subject=s'          => \$subject,
+  'body=s'             => \$body,
+  'conf=s'             => \$conf,
+);
+
+print "Got conf: $conf\n";
+my $exit_code = 0;
+my $ua = LWP::UserAgent->new( timeout => 10 );
+$ua->ssl_opts( verify_hostname => 0 );
+$ua->env_proxy;
+$ua->agent("Mozilla/5.0 (Windows NT 6.1; rv:30.0) Gecko/20100101 Firefox/30.0");
+
+my $server_endpoint = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={{ mysql_mha_wechat_token }}";
+
+my $req = HTTP::Request->new( POST => $server_endpoint );
+$req->header( 'content-type' => 'application/json; charset=UTF-8' );
+
+# add POST data to HTTP request body
+my $json_content = <<EOF;
+<font color=\"warning\">$subject</font>
+$body
+EOF
+
+my $post_data = {
+  msgtype => "markdown",
+  markdown => {
+    content => $json_content
+  }
+};
+my $json_string = JSON->new->utf8->encode($post_data);
+print "Sending message: $json_string\n";
+$req->content( $json_string );
+
+my $resp = $ua->request( $req );
+if ( $resp->is_success) {
+     my $message = $resp->decoded_content;
+     print "Received reply: $message\n" ;
+}
+else {
+     print "HTTP POST error code: " , $resp->code, "\n" ;
+     print "HTTP POST error message: " , $resp->message, "\n" ;
+     $exit_code = 255;
+}
+
+exit $exit_code;

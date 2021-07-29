@@ -1,0 +1,6 @@
+*.tar.*
+*.rpm
+files/ssl/*
+.vscode/
+__pycache__/
+*.pyc

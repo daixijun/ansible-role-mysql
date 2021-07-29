@@ -1,0 +1,23 @@
+---
+- name: Stop replica
+  community.mysql.mysql_replication:
+    mode: stopreplica
+  when:
+    - inventory_hostname != _primary_node
+
+- name: Restart mysqld service
+  systemd:
+    name: mysqld.service
+    state: restarted
+    daemon_reload: true
+
+- name: Watting for mysqld service restarted
+  wait_for:
+    path: "{{ mysql_socket }}"
+    state: started
+
+- name: Start replica
+  community.mysql.mysql_replication:
+    mode: startreplica
+  when:
+    - inventory_hostname != _primary_node

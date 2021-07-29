@@ -1,0 +1,24 @@
+{{ ansible_managed | comment }}
+[Unit]
+Description=Master High Availability Manager and tools for MySQL (MHA) for automating master failover and fast master switch
+Documentation=https://github.com/yoshinorim/mha4mysql-manager/wiki
+After=network.target
+After=syslog.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+User=root
+Group=root
+Type=simple
+TimeoutSec=0
+ExecStart=/usr/bin/masterha_manager \
+          --conf={{ mysql_mha_config_dir }}/masterha.cnf \
+          --remove_dead_master_conf \
+          --ignore_last_failover
+ExecStop=/usr/bin/masterha_stop --conf={{ mysql_mha_config_dir }}/masterha.cnf
+
+Restart=always
+RestartPreventExitStatus=1
+PrivateTmp=false

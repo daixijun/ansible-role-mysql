@@ -1,0 +1,108 @@
+---
+- name: Import check vars tasks
+  import_tasks: check_vars.yaml
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+  tags:
+    - always
+    - check
+
+- name: Import prepare tasks
+  import_tasks: prepare.yaml
+  tags:
+    - always
+    - prepare
+
+- name: Include install tasks
+  include_tasks: install.yaml
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+
+- name: Include group replication tasks
+  include_tasks:
+    file: group_replication.yaml
+    apply:
+      tags:
+        - gr
+        - ic
+  when:
+    - mysql_cluster_type == 'mgr'
+    - inventory_hostname in groups[mysql_inventory_group]
+  tags:
+    - always
+
+- name: Include mysql shell tasks
+  include_tasks:
+    file: mysql_shell.yaml
+    apply:
+      tags:
+        - shell
+  when:
+    - mysql_cluster_type == 'mgr'
+    - mysql_innodb_cluster_enable|bool
+    - inventory_hostname in groups[mysql_inventory_group]
+  tags:
+    - always
+
+- name: Include replication tasks
+  include_tasks:
+    file: master_slave.yaml
+    apply:
+      tags:
+        - ms
+        - rs
+  when:
+    - mysql_cluster_type == 'ms'
+    - inventory_hostname in groups[mysql_inventory_group]
+  tags:
+    - always
+
+- name: Import create database tasks
+  import_tasks: create_database.yaml
+  run_once: true
+  delegate_to: "{{ _primary_node }}"
+
+- name: Import create user tasks
+  import_tasks: create_user.yaml
+  run_once: true
+  delegate_to: "{{ _primary_node }}"
+
+- name: import mha4mysql common tasks
+  include_tasks:
+    file: mha4mysql_common.yaml
+    apply:
+      tags:
+        - mha
+  when:
+    - mysql_cluster_type == 'ms'
+    - mysql_mha_enabled | bool
+  tags:
+    - always
+
+- name: import mha4mysql node tasks
+  include_tasks:
+    file: mha4mysql_node.yaml
+    apply:
+      tags:
+        - mha
+  when:
+    - mysql_cluster_type == 'ms'
+    - mysql_mha_enabled | bool
+    # - inventory_hostname in groups[mysql_inventory_group]
+  tags:
+    - always
+    - mha-node
+
+- name: import mha4mysql manager tasks
+  include_tasks:
+    file: mha4mysql_manager.yaml
+    apply:
+      tags:
+        - mha
+        - manager
+  when:
+    - mysql_mha_enabled | bool
+    - inventory_hostname in groups['mha_manager']
+  tags:
+    - always
+    - mha-manager

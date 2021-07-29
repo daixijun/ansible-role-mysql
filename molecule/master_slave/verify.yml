@@ -1,0 +1,80 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: true
+  any_errors_fatal: yes
+  tasks:
+    - name: Gather service facts
+      service_facts:
+      no_log: true
+
+    - name: Assert mysql service state
+      assert:
+        that:
+          - ansible_facts.services['mysqld.service'].state == 'running'
+          - ansible_facts.services['mysqld.service'].status == 'enabled'
+
+    - name: Stat socket file
+      stat:
+        path: /var/run/mysqld/mysqld.sock
+        get_checksum: no
+      register: socket_stat
+      no_log: yes
+
+    - name: Assert that the socket file is in the expected state
+      assert:
+        that:
+          - socket_stat.stat.exists
+          - socket_stat.stat.issock
+          - socket_stat.stat.mode == "0777"
+          - socket_stat.stat.pw_name == "mysql"
+          - socket_stat.stat.gr_name == "mysql"
+
+    - name: Gather mysql info
+      community.mysql.mysql_info:
+        filter:
+          - databases
+          - users
+          - settings
+          - slave_hosts
+          - slave_status
+        return_empty_dbs: true
+        exclude_fields: db_size
+      register: _info
+      no_log: true
+
+    - name: Assert database db1 present
+      assert:
+        that:
+          - "'db1' in _info.databases"
+
+    - name: Check user are exists
+      assert:
+        that:
+          - "'user1' in _info.users['%']"
+
+    - name: Assert slave hosts
+      assert:
+        that:
+          - _info.slave_hosts|length == 2
+      when:
+        - groups['mysql'].index(inventory_hostname) == 0
+
+    - name: Assert slave status
+      assert:
+        that:
+          - _info.slave_status[master_host]['3306']['repl']['Slave_IO_Running'] == 'Yes'
+          - _info.slave_status[master_host]['3306']['repl']['Slave_SQL_Running'] == 'Yes'
+      vars:
+        master_host: "{{ hostvars['mysql1']['ansible_default_ipv4']['address'] }}"
+      when:
+        - groups['mysql'].index(inventory_hostname) > 0
+
+    - name: Asserts that slave read_only and super_read_only variables are ON
+      assert:
+        that:
+          - _info.settings.read_only == 'ON'
+          - _info.settings.super_read_only == 'ON'
+      when:
+        - groups['mysql'].index(inventory_hostname) > 0

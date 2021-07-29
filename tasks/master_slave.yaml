@@ -1,0 +1,66 @@
+---
+- name: Check if replica is already configured for replication
+  community.mysql.mysql_replication:
+    mode: getreplica
+  register: _mysql_replica_status
+  when:
+    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+
+- name: Change the primary in replica to start the replication
+  community.mysql.mysql_replication:
+    mode: changeprimary
+    primary_host: "{{ hostvars[_primary_node]['ansible_'+mysql_interface].ipv4.address if mysql_interface else hostvars[_primary_node].ansible_default_ipv4.address }}"
+    # primary_port: "{{ hostvars[_primary_node]['mysql_port'] }}"
+    primary_user: "{{ mysql_repl_user | default('repl') }}"
+    primary_password: "{{ mysql_repl_password }}"
+    primary_auto_position: true
+    primary_connect_retry: 10
+
+  when:
+    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - _mysql_replica_status is not skipped
+    - not _mysql_replica_status['Is_'+_mysql_term]
+  tags:
+    - skip_ansible_lint
+
+- name: Start replication
+  community.mysql.mysql_replication:
+    mode: startreplica
+  when:
+    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - _mysql_replica_status is not skipped
+    - not _mysql_replica_status['Is_'+_mysql_term]
+
+- name: Check replica super_read_only state
+  community.mysql.mysql_info:
+    filter:
+      - settings
+  register: _mysql_replica_info
+  no_log: true
+  when:
+    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+
+- name: Set slave super_read_only
+  community.mysql.mysql_query:
+    query: "SET PERSIST super_read_only = 1"
+  when:
+    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - _mysql_replica_info.settings.super_read_only == "OFF"
+
+- name: Query Primary Replica Cluster status
+  community.mysql.mysql_replication:
+    mode: getreplica
+  register: ms_cluster_status
+  # no_log: true
+  when:
+    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+
+- name: Assert that the slave is in the expected state
+  assert:
+    that:
+      - ms_cluster_status['Is_'+_mysql_term]|bool
+      - ms_cluster_status[_mysql_term+'_SQL_Running'] == "Yes"
+      - ms_cluster_status[_mysql_term+'_IO_Running'] == "Yes"
+  when:
+    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - ms_cluster_status is not skipped

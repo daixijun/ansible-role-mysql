@@ -1,0 +1,25 @@
+---
+- name: Converge
+  hosts: all
+  any_errors_fatal: yes
+  tasks:
+    - name: Import mysql role
+      import_role:
+        name: mysql
+      vars:
+        mysql_cluster_type: ms
+        mysql_mha_enabled: true
+        mysql_mha_password: eew0siek8ook0Eipei6c
+        mysql_root_password: ieng8Taibonga6dair0j
+        mysql_repl_password: Ad5sa7aer7eiN3goo2be
+        mysql_mha_vip: "172.17.0.100"
+        mysql_mha_wechat_token: d394e17d-5836-4e63-b3d9-4decbbea3a0c
+        mysql_proxysql_config: true
+        mysql_proxysql_monitor_username: monitor
+        mysql_proxysql_monitor_password: bive3ekoo6Oov1ayo-th
+        mysql_databases:
+          - name: db1
+        mysql_users:
+          - name: user1
+            password: Ang4eij~aiSh4lu4tho5
+            priv: "db1.*:ALL"

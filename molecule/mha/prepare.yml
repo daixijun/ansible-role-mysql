@@ -1,0 +1,20 @@
+---
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  any_errors_fatal: yes
+  tasks:
+    - name: Install openssh
+      yum:
+        name:
+          - openssh
+          - openssh-clients
+          - openssh-server
+          - python2-PyMySQL
+        state: present
+        update_cache: true
+
+    - name: Ensure sshd started
+      systemd:
+        name: sshd.service
+        state: started

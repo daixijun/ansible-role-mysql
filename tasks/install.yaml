@@ -1,0 +1,177 @@
+---
+- name: Download mysql package
+  get_url:
+    url: "{{ mysql_download_url }}"
+    dest: "{{ playbook_dir }}/files/{{ mysql_package_name }}"
+    checksum: "md5:{{ mysql_download_url }}.md5"
+    timeout: 300
+    mode: "0600"
+  become: false
+  check_mode: false
+  run_once: true
+  delegate_to: localhost
+  when:
+    - _mysql_installed_version is failed or mysql_upgrade|bool
+# - inventory_hostname in groups[mysql_inventory_group]
+
+# register: _mysql_package
+- name: Unarchive mysql binary package
+  unarchive:
+    src: "files/{{ mysql_package_name }}"
+    dest: /usr/local/
+    creates: "{{ mysql_versioned_basedir }}"
+    remote_src: false
+    mode: "0755"
+    owner: mysql
+    group: mysql
+  register: _mysql_unarchive
+  notify:
+    - restart mysql
+
+- name: Ensure directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    # recurse: true
+    mode: "0750"
+    owner: mysql
+    group: mysql
+  loop:
+    - "{{ mysql_versioned_basedir }}/etc"
+    - "{{ mysql_datadir }}"
+    - "{{ mysql_logdir }}"
+    - "{{ mysql_pidfile | dirname }}"
+    - "{{ mysql_socket | dirname }}"
+
+- name: Create tmpfiles for pidfile directory
+  copy:
+    content: d {{ mysql_pidfile | dirname }} 0750 mysql mysql -
+    dest: /usr/lib/tmpfiles.d/mysqld.conf
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Setting PATH environment variable
+  copy:
+    content: "export PATH={{ mysql_basedir }}/bin:$PATH"
+    dest: /etc/profile.d/mysql.sh
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Generate my.cnf
+  template:
+    src: my.cnf.j2
+    dest: "{{ mysql_versioned_basedir }}/etc/my.cnf"
+    owner: mysql
+    group: mysql
+    mode: "0644"
+    validate: "{{ mysql_versioned_basedir }}/bin/mysqld --defaults-file=%s --validate-config"
+  notify:
+    - restart mysql
+
+- name: Generate logrotate for logs
+  template:
+    src: mysql-log-rotate.j2
+    dest: /etc/logrotate.d/mysql
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Generate mysql service for systemd
+  template:
+    src: mysqld.service.j2
+    dest: /etc/systemd/system/mysqld.service
+    owner: root
+    group: root
+    mode: "0644"
+  when:
+    - ansible_service_mgr == 'systemd'
+  notify:
+    - restart mysql
+
+- name: Check initialize status
+  shell: ls -lA {{ mysql_datadir }} | grep -v total | wc -l
+  register: need_to_initialize
+  changed_when: false
+  tags:
+    - skip_ansible_lint
+
+- name: Initializing the Data Directory
+  shell: "{{ mysql_versioned_basedir }}/bin/mysqld --initialize-insecure --lower-case-table-names=1 --user=mysql --basedir={{ mysql_versioned_basedir }} --datadir={{ mysql_datadir }}"
+  register: _mysql_initialize_status
+  when:
+    - not need_to_initialize is skipped
+    - need_to_initialize.stdout|int == 0
+  tags:
+    - skip_ansible_lint
+
+- name: Created symlink from {{ mysql_versioned_basedir }} to {{ mysql_basedir }}
+  file:
+    src: "{{ mysql_versioned_basedir }}"
+    dest: "{{ mysql_basedir }}"
+    owner: mysql
+    group: mysql
+    state: link
+    force: true
+    mode: "0777"
+  notify:
+    - restart mysql
+  when:
+    - _mysql_unarchive is not skipped
+
+- name: Ensure mysql service started
+  systemd:
+    name: mysqld.service
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Watting for mysql service started
+  wait_for:
+    host: 0.0.0.0
+    port: 3306
+    state: started
+    timeout: 60
+
+- name: Update root password
+  community.mysql.mysql_user:
+    name: root
+    host_all: true
+    password: "{{ mysql_root_password }}"
+    check_implicit_admin: true
+    login_user: root
+    login_unix_socket: "{{ mysql_socket }}"
+    sql_log_bin: false
+  when: _mysql_initialize_status is not skipped
+  tags:
+    - skip_ansible_lint
+
+# 一定要在更新完root密码后才生成，否则更新密码时会认证失败
+- name: Generate ~/.my.cnf
+  template:
+    src: user.my.cnf.j2
+    dest: /root/.my.cnf
+    owner: root
+    group: root
+    mode: "400"
+  no_log: true
+
+- name: Removes all anonymous user accounts
+  community.mysql.mysql_user:
+    name: ""
+    host_all: true
+    sql_log_bin: false
+    state: absent
+  tags:
+    - skip_ansible_lint
+
+# 添加新节点时会需要通过 clone 插件进行数据复制，要求 BACKUP_ADMIN 权限
+- name: Ensure replication user
+  community.mysql.mysql_user:
+    name: "{{ mysql_repl_user | default('repl') }}"
+    host: "%"
+    password: "{{ mysql_repl_password }}"
+    priv: "*.*:REPLICATION SLAVE,REPLICATION CLIENT,BACKUP_ADMIN"
+    sql_log_bin: false
+    state: present

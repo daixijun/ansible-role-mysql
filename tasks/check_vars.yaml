@@ -1,0 +1,71 @@
+---
+- name: Get installed version
+  command:
+    cmd: '{{ mysql_basedir }}/bin/mysql --silent --skip-column-names -e "SELECT VERSION()";'
+    warn: false
+  changed_when: false
+  check_mode: false
+  register: _mysql_installed_version
+  ignore_errors: true
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+
+- name: Add variable mysql_installed_version
+  set_fact:
+    mysql_installed_version: "{{ _mysql_installed_version.stdout.split('-') | first }}"
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+    - _mysql_installed_version is not failed
+
+- name: Failed if mysql_version is not equal the installed version
+  fail:
+    msg: "The version expected to be installed is {{ mysql_version }}, but already installed version {{ mysql_installed_version }}, You can perform the upgrade by adding `mysql_upgrade=true`"
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+    - not mysql_upgrade
+    - mysql_installed_version is defined
+    - mysql_version is not version(mysql_installed_version, 'eq')
+
+- name: Failed if mysql_version is less than the installed version (upgrade is enabled)
+  fail:
+    msg: "mysql_version({{ mysql_version }}) cannot be less than the installed version {{ mysql_installed_version }}"
+  when:
+    - inventory_hostname in groups[mysql_inventory_group]
+    - mysql_upgrade|bool
+    - mysql_installed_version is defined
+    - mysql_version is version(mysql_installed_version, '<')
+
+- name: Check mysql_root_password
+  assert:
+    that:
+      - mysql_root_password|string|length > 0
+
+- name: Check mysql_repl_password
+  assert:
+    that:
+      - mysql_repl_password|string|length > 0
+  when:
+    - mysql_inventory_group in groups
+    - groups[mysql_inventory_group]|length > 1
+
+- name: Check mysql_group_replication_name
+  assert:
+    that:
+      - mysql_group_replication_name|string|length > 0
+  when:
+    - mysql_cluster_type == 'mgr'
+
+- name: Check mysql_innodb_cluster_password
+  assert:
+    that:
+      - mysql_innodb_cluster_password|string|length > 0
+  when:
+    - mysql_cluster_type == 'mgr'
+    - mysql_innodb_cluster_enable|bool
+
+- name: Check mysql_proxysql_monitor_password
+  assert:
+    that:
+      - mysql_proxysql_monitor_password|string|length > 0
+  when:
+    - mysql_proxysql_config|bool

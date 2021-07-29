@@ -1,0 +1,10 @@
+---
+- name: Side Effect
+  hosts: mysql_primary
+  gather_facts: false
+  tasks:
+    - name: Stop mysql primary node
+      systemd:
+        name: mysqld.service
+        state: stopped
+      run_once: true
