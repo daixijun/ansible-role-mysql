@@ -58,6 +58,8 @@
   delegate_to: "{{ _primary_node }}"
   when:
     - mysql_proxysql_config|bool
+  tags:
+    - molecule-idempotence-notest
 
 - name: Create internal view sys.gr_member_routing_candidate_status for monitoring
   community.mysql.mysql_db:
