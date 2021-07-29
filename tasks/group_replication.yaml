@@ -54,7 +54,7 @@
     mode: "0600"
     owner: root
     group: root
-  run_once: true
+  # run_once: true
   delegate_to: "{{ _primary_node }}"
   when:
     - mysql_proxysql_config|bool
