@@ -95,6 +95,7 @@
     - mysql_cluster_type == 'ms'
     - _ms_primary_status is not skipped
     - _ms_primary_status is not failed
+    - _ms_primary_status.rowcount[0] > 0
 
 - name: Set primary node (default)
   set_fact:
