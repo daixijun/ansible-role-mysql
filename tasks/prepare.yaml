@@ -54,15 +54,12 @@
   community.mysql.mysql_query:
     query: "SELECT member_host FROM performance_schema.replication_group_members WHERE member_role = 'PRIMARY' LIMIT 1"
   register: _gr_primary_status
-  # run_once: true
-  # delegate_to: "{{ hostvars[groups[mysql_inventory_group][0]]['inventory_hostname'] }}"
   ignore_errors: true
   changed_when: false
   check_mode: false
   when:
     - inventory_hostname in groups[mysql_inventory_group]
     - mysql_cluster_type == 'mgr'
-    # - groups[mysql_inventory_group].index(inventory_hostname) == 0
 
 - name: Set primary node (MGR)
   vars:
@@ -85,7 +82,6 @@
   check_mode: false
   when:
     - groups[mysql_inventory_group]|count > 1
-    - inventory_hostname in groups[mysql_inventory_group]
     - mysql_cluster_type == 'ms'
 
 - name: Set primary node (Primary Replica)
@@ -93,15 +89,14 @@
     _primary_node: "{{ hostvars | dict2items | rejectattr('value._ms_primary_status.rowcount', 'undefined') | selectattr('value._ms_primary_status.rowcount', 'ne', [0]) | map(attribute='key') | first }}"
   when:
     - groups[mysql_inventory_group]|count > 1
-    - inventory_hostname in groups[mysql_inventory_group]
     - mysql_cluster_type == 'ms'
     - _ms_primary_status is not skipped
-    - _ms_primary_status is not failed
 
 - name: Set primary node (default)
   set_fact:
     _primary_node: "{{ hostvars[groups[mysql_inventory_group][0]]['inventory_hostname'] }}"
   when:
+    - inventory_hostname in groups[mysql_inventory_group]
     - _primary_node is undefined or _primary_node|length == 0
 
 - name: Set install prefix
