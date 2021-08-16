@@ -84,6 +84,7 @@
   changed_when: false
   check_mode: false
   when:
+    - groups[mysql_inventory_group]|count > 1
     - inventory_hostname in groups[mysql_inventory_group]
     - mysql_cluster_type == 'ms'
 
@@ -91,11 +92,11 @@
   set_fact:
     _primary_node: "{{ hostvars | dict2items | rejectattr('value._ms_primary_status.rowcount', 'undefined') | selectattr('value._ms_primary_status.rowcount', 'ne', [0]) | map(attribute='key') | first }}"
   when:
+    - groups[mysql_inventory_group]|count > 1
     - inventory_hostname in groups[mysql_inventory_group]
     - mysql_cluster_type == 'ms'
     - _ms_primary_status is not skipped
     - _ms_primary_status is not failed
-    - _ms_primary_status.rowcount[0] > 0
 
 - name: Set primary node (default)
   set_fact:
