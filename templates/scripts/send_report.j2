@@ -44,6 +44,9 @@ my $exit_code = 0;
 my $ua = LWP::UserAgent->new( timeout => 10 );
 $ua->ssl_opts( verify_hostname => 0 );
 $ua->env_proxy;
+{% if mysql_mha_proxy %}
+$ua->proxy(['https', 'http'], '{{ mysql_mha_proxy }}');
+{% endif %}
 $ua->agent("Mozilla/5.0 (Windows NT 6.1; rv:30.0) Gecko/20100101 Firefox/30.0");
 
 my $server_endpoint = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={{ mysql_mha_wechat_token }}";

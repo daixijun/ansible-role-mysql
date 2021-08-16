@@ -50,6 +50,7 @@ mysql_mha_repl_password: "{{ mysql_repl_password }}"
 mysql_mha_ping_interval: 2
 mysql_mha_vip: ""
 mysql_mha_wechat_token: "" # 企业微信机器人Key, 用于发送报警通知
+mysql_mha_proxy: "" # 用于发送报警通知(send_report)设置代理
 
 mysql_repl_user: repl
 mysql_repl_password: ""

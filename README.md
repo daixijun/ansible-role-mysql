@@ -66,6 +66,7 @@
 | mysql_mha_ping_interval                     | int    | 2                           | master 节点状态心跳间隔                                                                     |
 | mysql_mha_vip                               | string | ""                          | 用于绑定到 master 节点的 VIP                                                                |
 | mysql_mha_wechat_token                      | string | ""                          | 企业微信机器人的 Key, 用于发送报警通知                                                      |
+| mysql_mha_proxy                             | string | ""                          | 用于发送报警通知(send_report)脚本使用的代理                                                 |
 | mysql_repl_user                             | string | repl                        | 用于主从/组复制的账号                                                                       |
 | mysql_repl_password                         | string |                             | 用于主从/组复制的账号的密码                                                                 |
 | mysql_group_replication_name                | uuid   | ""                          | 组复制集群名,在 mysql 中使用`SELECT UUID()`或 shell 中使用`uuidgen`生成                     |
