@@ -11,7 +11,7 @@ jobs:
       matrix:
         os: [centos7]
         mysql-version: [8.0.25]
-        scenario: [single_primary, multi_primary, master_slave, mha]
+        scenario: [single_primary, multi_primary, master_slave, mha, standalone]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
