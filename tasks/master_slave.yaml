@@ -3,8 +3,9 @@
   community.mysql.mysql_replication:
     mode: getreplica
   register: _mysql_replica_status
+  check_mode: false
   when:
-    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - inventory_hostname != _primary_node
 
 - name: Change the primary in replica to start the replication
   community.mysql.mysql_replication:
@@ -15,9 +16,8 @@
     primary_password: "{{ mysql_repl_password }}"
     primary_auto_position: true
     primary_connect_retry: 10
-
   when:
-    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - inventory_hostname != _primary_node
     - _mysql_replica_status is not skipped
     - not _mysql_replica_status['Is_'+_mysql_term]
   tags:
@@ -27,7 +27,7 @@
   community.mysql.mysql_replication:
     mode: startreplica
   when:
-    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - inventory_hostname != _primary_node
     - _mysql_replica_status is not skipped
     - not _mysql_replica_status['Is_'+_mysql_term]
 
@@ -38,13 +38,13 @@
   register: _mysql_replica_info
   no_log: true
   when:
-    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - inventory_hostname != _primary_node
 
 - name: Set slave super_read_only
   community.mysql.mysql_query:
-    query: "SET PERSIST super_read_only = 1"
+    query: "SET GLOBAL super_read_only = 1"
   when:
-    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - inventory_hostname != _primary_node
     - _mysql_replica_info.settings.super_read_only == "OFF"
 
 - name: Query Primary Replica Cluster status
@@ -53,7 +53,7 @@
   register: ms_cluster_status
   # no_log: true
   when:
-    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - inventory_hostname != _primary_node
 
 - name: Assert that the slave is in the expected state
   assert:
@@ -62,5 +62,5 @@
       - ms_cluster_status[_mysql_term+'_SQL_Running'] == "Yes"
       - ms_cluster_status[_mysql_term+'_IO_Running'] == "Yes"
   when:
-    - (inventory_hostname != _primary_node) or (groups[mysql_inventory_group].index(inventory_hostname) > 0)
+    - inventory_hostname != _primary_node
     - ms_cluster_status is not skipped
