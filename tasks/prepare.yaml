@@ -87,6 +87,7 @@
 - name: Set primary node (Primary Replica)
   set_fact:
     _primary_node: "{{ hostvars | dict2items | rejectattr('value._ms_primary_status.rowcount', 'undefined') | selectattr('value._ms_primary_status.rowcount', 'ne', [0]) | map(attribute='key') | first }}"
+  ignore_errors: true
   when:
     - groups[mysql_inventory_group]|count > 1
     - mysql_cluster_type == 'ms'
@@ -96,7 +97,7 @@
   set_fact:
     _primary_node: "{{ hostvars[groups[mysql_inventory_group][0]]['inventory_hostname'] }}"
   when:
-    - inventory_hostname in groups[mysql_inventory_group]
+    # - inventory_hostname in groups[mysql_inventory_group]
     - _primary_node is undefined or _primary_node|length == 0
 
 - name: Set install prefix
