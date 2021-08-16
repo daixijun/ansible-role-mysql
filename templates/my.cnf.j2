@@ -134,22 +134,13 @@ slave_parallel_type                          = LOGICAL_CLOCK
 slave_preserve_commit_order                  = 1
 slave_parallel_workers                       = {{ ansible_processor_vcpus * 2 }}
 
-{% if mysql_cluster_type == 'ms' %}
 # for semi sync
-plugin-load = "rpl_semi_sync_master=semisync_master.so;rpl_semi_sync_slave=semisync_slave.so"
-loose-rpl-semi-sync-master-enabled = 1
-loose-rpl-semi-sync-slave-enabled = 1
+{% set _mysql_term_source = 'master' if mysql_version is version('8.0.26', '<') else 'source' %}
+{% set _mysql_term_replica = 'slave' if mysql_version is version('8.0.26', '<') else 'replica' %}
+plugin-load = "rpl_semi_sync_{{ _mysql_term_source }}=semisync_{{ _mysql_term_source }}.so;rpl_semi_sync_slave=semisync_slave.so"
+loose-rpl_semi_sync_{{ _mysql_term_source }}_enabled = 1
+loose-rpl_semi_sync_{{ _mysql_term_replica }}_enabled = 1
 
-{% endif %}
-{% if mysql_audit_log %}
-plugin-load                                  = audit_log.so
-audit_log_connection_policy                  = 'ALL'
-audit_log_exclude_accounts                   = NULL
-audit_log_policy                             = 'ALL'
-audit_log_statement_policy                   = 'ALL'
-audit_log_strategy                           = 'SEMISYNCHRONOUS'
-
-{% endif %}
 {% if mysql_version is version('8.0.17', operator='>=') %}
 plugin-load                                 = mysql_clone.so        # 加载clone插件
 # clone                                        = FORCE_PLUS_PERMANENT  # 强制加载clone插件，如果插件初始化失败，则mysqld会启动失败

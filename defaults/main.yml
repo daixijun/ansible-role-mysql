@@ -51,9 +51,6 @@ mysql_mha_ping_interval: 2
 mysql_mha_vip: ""
 mysql_mha_wechat_token: "" # 企业微信机器人Key, 用于发送报警通知
 
-# 是否开启审计日志
-mysql_audit_log: false
-
 mysql_repl_user: repl
 mysql_repl_password: ""
 # MGR
