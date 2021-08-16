@@ -1,0 +1,32 @@
+---
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: true
+  any_errors_fatal: yes
+  tasks:
+    - name: Gather service facts
+      service_facts:
+      no_log: true
+
+    - name: Assert mysql service state
+      assert:
+        that:
+          - ansible_facts.services['mysqld.service'].state == 'running'
+          - ansible_facts.services['mysqld.service'].status == 'enabled'
+
+    - name: Stat socket file
+      stat:
+        path: /var/run/mysqld/mysqld.sock
+        get_checksum: no
+      register: socket_stat
+      no_log: yes
+
+    - name: Assert that the socket file is in the expected state
+      assert:
+        that:
+          - socket_stat.stat.exists
+          - socket_stat.stat.issock
+          - socket_stat.stat.mode == "0777"
+          - socket_stat.stat.pw_name == "mysql"
+          - socket_stat.stat.gr_name == "mysql"
