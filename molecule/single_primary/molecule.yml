@@ -3,24 +3,23 @@ dependency:
   name: galaxy
 driver:
   name: docker
-# lint: |
-#   set -e
-#   ansible-lint -v .
+lint: |
+  set -e
+  yamllint .
+  ansible-lint -v .
 platforms:
   - name: mysql1
     image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
-    command: ""
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
     pre_build_image: true
     groups:
       - mysql
-    children:
-      - mysql_primary
   - name: mysql2
     image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
-    command: ""
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
@@ -28,20 +27,15 @@ platforms:
     purge_networks: false
     groups:
       - mysql
-    children:
-      - mysql_secondary
   - name: mysql3
     image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
-    command: ""
+    command: ${MOLECULE_DOCKER_COMMAND:-""}
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
     pre_build_image: true
-    purge_networks: false
     groups:
       - mysql
-    children:
-      - mysql_secondary
 provisioner:
   name: ansible
   inventory:

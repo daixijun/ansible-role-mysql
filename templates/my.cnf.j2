@@ -1,4 +1,6 @@
 {{ ansible_managed | comment }}
+{% set _mysql_term_source = 'master' if mysql_version is version('8.0.26', '<') else 'source' %}
+{% set _mysql_term_replica = 'slave' if mysql_version is version('8.0.26', '<') else 'replica' %}
 [mysqld]
 # Connection and Thread variables
 port                            = {{ mysql_port }}
@@ -11,7 +13,11 @@ mysqlx_socket                   = {{ mysql_socket | dirname }}/mysqlx.sock
 basedir                         = {{ mysql_basedir }}
 datadir                         = {{ mysql_datadir }}
 tmpdir                          = /tmp/
+{% if mysql_version is version('8.0.27', '<') %}
 default_authentication_plugin   = mysql_native_password # 兼容老版本认证方式
+{% else %}
+authentication_policy           = *
+{% endif %}
 default_storage_engine          = INNODB
 character_set_server            = {{ mysql_character_set_server }}
 collation_server                = {{ mysql_collation_server }}
@@ -25,7 +31,12 @@ thread_cache_size               = 505
 transaction_isolation           = READ-COMMITTED
 lower_case_table_names          = 1
 sql_mode                        = {{ mysql_sql_mode | quote }}
+{% if mysql_version is version('8.0.27', '<') %}
 ssl
+{% else %}
+tls_version                     = {{ mysql_tls_version }}
+admin_tls_version               = {{ mysql_admin_tls_version }}
+{% endif %}
 
 # 优化 Session 级别 Buffer 大小，减小内存占用率
 read_buffer_size                = 4M
@@ -99,7 +110,7 @@ max_binlog_size                     = 128M
 sync_binlog                         = 1
 relay-log                           = relay-bin
 relay-log-index                     = relay-bin-index
-log_slow_slave_statements           = 1  # 在slave上开启慢查询日志，query时间等于 long_query_time
+log_slow_{{ _mysql_term_replica }}_statements           = 1  # 在slave上开启慢查询日志，query时间等于 long_query_time
 
 # Slow Query log
 slow_query_log                  = 1
@@ -120,7 +131,7 @@ master_info_repository          = TABLE
 relay_log_info_repository       = TABLE
 {% endif %}
 relay_log_recovery              = ON
-log_slave_updates               = ON
+log_{{ _mysql_term_replica }}_updates               = ON
 
 # Security variables
 local_infile                                 = 0
@@ -130,14 +141,12 @@ gtid_mode                                    = ON  # 开启 GTID 功能
 enforce_gtid_consistency                     = ON  # 开启强一致性
 
 # 基于主键的并行复制
-slave_parallel_type                          = LOGICAL_CLOCK
-slave_preserve_commit_order                  = 1
-slave_parallel_workers                       = {{ ansible_processor_vcpus * 2 }}
+{{ _mysql_term_replica }}_parallel_type                          = LOGICAL_CLOCK
+{{ _mysql_term_replica }}_preserve_commit_order                  = 1
+{{ _mysql_term_replica }}_parallel_workers                       = {{ ansible_processor_vcpus * 2 }}
 
 # for semi sync
-{% set _mysql_term_source = 'master' if mysql_version is version('8.0.26', '<') else 'source' %}
-{% set _mysql_term_replica = 'slave' if mysql_version is version('8.0.26', '<') else 'replica' %}
-plugin-load = "rpl_semi_sync_{{ _mysql_term_source }}=semisync_{{ _mysql_term_source }}.so;rpl_semi_sync_slave=semisync_slave.so"
+plugin-load = "rpl_semi_sync_{{ _mysql_term_source }}=semisync_{{ _mysql_term_source }}.so;rpl_semi_sync_{{ _mysql_term_replica }}=semisync_{{ _mysql_term_replica }}.so"
 loose-rpl_semi_sync_{{ _mysql_term_source }}_enabled = 1
 loose-rpl_semi_sync_{{ _mysql_term_replica }}_enabled = 1
 
@@ -149,7 +158,9 @@ plugin-load                                 = mysql_clone.so        # 加载clon
 {% if mysql_cluster_type == 'mgr' %}
 # Mysql Group Replication
 plugin-load                                                 = group_replication.so
+{% if mysql_version is version('8.0.27', '<') %}
 transaction_write_set_extraction                            = XXHASH64
+{% endif %}
 loose-group_replication_group_name                          = "{{ mysql_group_replication_name | lower }}" # 可在库里使用SELECT UUID()生成，一个组的所有机器都相同。
 loose-group_replication_start_on_boot                       = OFF
 loose-group_replication_bootstrap_group                     = OFF

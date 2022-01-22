@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [centos7]
-        mysql-version: [8.0.25]
+        mysql-version: [8.0.27, 8.0.28]
         scenario: [single_primary, multi_primary, master_slave, mha, standalone]
     steps:
       - name: Checkout
@@ -20,13 +20,13 @@ jobs:
         with:
           python-version: 3.x
           architecture: x64
-      - uses: actions/cache@v1
-        id: cache
-        with:
-          path: molecule/${{ matrix.scenario }}/files/
-          key: ${{ matrix.os }}-mysql-${{ matrix.mysql-version }}
-          restore-keys: |
-            ${{ matrix.os }}-mysql-${{ matrix.mysql-version }}
+      # - uses: actions/cache@v1
+      #   id: cache
+      #   with:
+      #     path: molecule/${{ matrix.scenario }}/files/
+      #     key: ${{ matrix.os }}-mysql-${{ matrix.mysql-version }}
+      #     restore-keys: |
+      #       ${{ matrix.os }}-mysql-${{ matrix.mysql-version }}
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -37,7 +37,7 @@ jobs:
           MOLECULE_DISTRO: ${{ matrix.os }}
           MYSQL_VERSION: ${{ matrix.mysql-version }}
           MOLECULE_SCENARIO: ${{ matrix.scenario }}
-          MOLECULE_MYSQL_DOWNLOAD_URL: "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-${{ matrix.mysql-version }}-el7-x86_64.tar.gz"
+          MOLECULE_MYSQL_DOWNLOAD_URL: "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-${{ matrix.mysql-version }}-linux-glibc2.17-x86_64-minimal.tar.xz"
         run: |
           cd ..
           ln -sf ansible-role-mysql mysql
