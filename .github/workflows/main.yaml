@@ -30,7 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ansible "molecule[docker,lint]"
+          pip install ansible "molecule[docker,lint]" ansible-lint
           ansible-galaxy collection install -r requirements.yml
       - name: Test with molecule
         env:
