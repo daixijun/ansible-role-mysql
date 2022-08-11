@@ -48,13 +48,16 @@ GetOptions(
 );
 
 {% if '/' in mysql_mha_vip %}
-my $vip = "{{ mysql_mha_vip }}";
+my @ipnet_array=split(/\//, "{{ mysql_mha_vip }}")
+my $vip = @ipnet_array[0];
+my $netmask = @ipnet_array[1];
 {% else %}
-my $vip = "{{ mysql_mha_vip }}/32";
+my $vip = "{{ mysql_mha_vip }}";
+my $netmask = "32";
 {% endif %}
 my $interface = "{{ mysql_interface if mysql_interface|length >0 else ansible_default_ipv4.interface }}";
-my $ssh_start_vip = "/usr/sbin/ip address add $vip dev $interface";
-my $ssh_stop_vip = "/usr/sbin/ip address del $vip dev $interface";
+my $ssh_start_vip = "/usr/sbin/ip address add $vip/$netmask dev $interface";
+my $ssh_stop_vip = "/usr/sbin/ip address del $vip/$netmask dev $interface";
 my $ssh_flush_arp = "/usr/sbin/arping -c 4 -A -I $interface $vip";
 my $ssh_status_vip = "/usr/sbin/ip address show $interface";
 

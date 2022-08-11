@@ -62,7 +62,7 @@ provisioner:
   name: ansible
   inventory:
     group_vars:
-      mysql:
+      mha:
         mysql_download_url: ${MOLECULE_MYSQL_DOWNLOAD_URL}
   config_options:
     defaults:

@@ -1,6 +1,6 @@
 ---
 mysql_version: 8.0.28
-mysql_download_url: https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-{{ mysql_version }}-linux-glibc2.17-x86_64-minimal.tar.gz
+mysql_download_url: https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-{{ mysql_version }}-linux-glibc2.17-x86_64-minimal.tar.xz
 mysql_shell_download_url: https://cdn.mysql.com/Downloads/MySQL-Shell/mysql-shell-{{ mysql_version }}-1.el{{ ansible_distribution_major_version }}.x86_64.rpm
 mysql_mha_version: 0.58
 mysql_mha_manager_download_url: https://github.com/yoshinorim/mha4mysql-manager/releases/download/v{{ mysql_mha_version }}/mha4mysql-manager-{{ mysql_mha_version }}-0.el7.centos.noarch.rpm
