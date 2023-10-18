@@ -56,7 +56,7 @@
     - inventory_hostname != _primary_node
 
 - name: Assert that the slave is in the expected state
-  assert:
+  ansible.builtin.assert:
     that:
       - ms_cluster_status['Is_'+_mysql_term]|bool
       - ms_cluster_status[_mysql_term+'_SQL_Running'] == "Yes"

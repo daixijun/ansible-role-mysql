@@ -1,6 +1,6 @@
 ---
 - name: Ensure mysql group
-  group:
+  ansible.builtin.group:
     name: mysql
     system: yes
     state: present
@@ -8,7 +8,7 @@
     - inventory_hostname in groups[mysql_inventory_group]
 
 - name: Ensure mysql user
-  user:
+  ansible.builtin.user:
     group: mysql
     name: mysql
     system: yes
@@ -20,9 +20,8 @@
     - inventory_hostname in groups[mysql_inventory_group]
 
 - name: Disable Transparent Huge Pages (THP)
-  shell:
+  ansible.builtin.shell:
     cmd: echo never > {{ item }}
-    warn: false
   changed_when: false
   ignore_errors: true
   loop:
@@ -43,7 +42,7 @@
     state: present
 
 - name: Installing mysql dependencies
-  yum:
+  ansible.builtin.package:
     name: "{{ mysql_dependencies }}"
     state: present
     update_cache: true
@@ -64,7 +63,7 @@
 - name: Set primary node (MGR)
   vars:
     primary_member_host: "{{ _gr_primary_status.query_result[0][0].member_host }}"
-  set_fact:
+  ansible.builtin.set_fact:
     _primary_node: "{{ hostvars | dict2items | rejectattr('value._gr_primary_status', 'undefined') | selectattr('value.ansible_facts.default_ipv4.address', 'equalto', primary_member_host) | map(attribute='key') | first }}"
   when:
     - inventory_hostname in groups[mysql_inventory_group]
@@ -85,7 +84,7 @@
     - mysql_cluster_type == 'ms'
 
 - name: Set primary node (Primary Replica)
-  set_fact:
+  ansible.builtin.set_fact:
     _primary_node: "{{ hostvars | dict2items | rejectattr('value._ms_primary_status.rowcount', 'undefined') | selectattr('value._ms_primary_status.rowcount', 'ne', [0]) | map(attribute='key') | first }}"
   ignore_errors: true
   when:
@@ -94,14 +93,14 @@
     - _ms_primary_status is not skipped
 
 - name: Set primary node (default)
-  set_fact:
+  ansible.builtin.set_fact:
     _primary_node: "{{ hostvars[groups[mysql_inventory_group][0]]['inventory_hostname'] }}"
   when:
     # - inventory_hostname in groups[mysql_inventory_group]
     - _primary_node is undefined or _primary_node|length == 0
 
 - name: Set install prefix
-  set_fact:
+  ansible.builtin.set_fact:
     mysql_versioned_basedir: /usr/local/{{ mysql_download_url | basename | regex_replace('.tar.*$') }}
     mysql_package_name: "{{ mysql_download_url | basename }}"
     _mysql_term: "{{ (mysql_version is version('8.0.22', operator='>=')) | ternary('Replica', 'Slave') }}"

@@ -1,6 +1,6 @@
 ---
 - name: mysql | mha | manager | Copy rpm package to target server
-  copy:
+  ansible.builtin.copy:
     src: "{{ playbook_dir }}/files/{{ mysql_mha_manager_download_url | basename }}"
     dest: "/usr/local/src/{{ mysql_mha_manager_download_url | basename }}"
     owner: root
@@ -8,12 +8,12 @@
     mode: "0644"
 
 - name: mysql | mha | manager | Installing
-  yum:
+  ansible.builtin.package:
     name: /usr/local/src/{{ mysql_mha_manager_download_url | basename }}
     state: present
 
 - name: mysql | mha | manager | Create mha4mysql manager configuration
-  template:
+  ansible.builtin.template:
     src: mha.cnf.j2
     dest: "{{ mysql_mha_config_dir }}/masterha.cnf"
     owner: root
@@ -23,7 +23,7 @@
     - restart mha4mysql manager
 
 - name: mysql | mha | manager | Generate failover scripts
-  template:
+  ansible.builtin.template:
     src: "scripts/{{ item }}.j2"
     dest: "/usr/bin/{{ item }}"
     owner: root
@@ -36,19 +36,19 @@
     - send_report
 
 - name: mysql | mha | manager | MasterHA check ssh
-  command:
+  ansible.builtin.command:
     cmd: /usr/bin/masterha_check_ssh --conf=/etc/mha/masterha.cnf
     warn: false
   changed_when: false
 
 - name: mysql | mha | manager | MasterHA check repl
-  command:
+  ansible.builtin.command:
     cmd: /usr/bin/masterha_check_repl --conf=/etc/mha/masterha.cnf
     warn: false
   changed_when: false
 
 - name: mysql | mha | manager | Create startup for systemd
-  template:
+  ansible.builtin.template:
     src: mha4mysql-manager.service.j2
     dest: /etc/systemd/system/mha4mysql-manager.service
     owner: root

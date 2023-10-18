@@ -1,6 +1,6 @@
 ---
 - name: Download mysql-shell package
-  get_url:
+  ansible.builtin.get_url:
     url: "{{ mysql_shell_download_url }}"
     dest: "{{ playbook_dir }}/files/{{ mysql_shell_download_url | basename }}"
     mode: "0600"
@@ -11,19 +11,31 @@
   when:
     - groups[mysql_inventory_group].index(inventory_hostname) == 0
 
-- name: Copy mysql-shell package to target server
-  copy:
+- name: Unarchive mysql-shell to target server
+  ansible.builtin.unarchive:
     src: "{{ playbook_dir }}/files/{{ mysql_shell_download_url | basename }}"
-    dest: /usr/local/src/{{ mysql_shell_download_url | basename }}
-    mode: "0600"
-    owner: root
-    group: root
+    dest: /usr/local/
+    creates: "/usr/local/{{ mysql_shell_download_url | basename | regex_replace('.tar.*$', '') }}"
+    mode: "0755"
+    owner: mysql
+    group: mysql
   check_mode: false
 
-- name: Install mysql-shell
-  yum:
-    name: /usr/local/src/{{ mysql_shell_download_url | basename }}
-    state: present
+- name: Symlink /usr/local/{{ mysql_shell_download_url | basename | regex_replace('.tar.*$', '') }} to /usr/local/mysql-shell
+  ansible.builtin.file:
+    src: "/usr/local/{{ mysql_shell_download_url | basename | regex_replace('.tar.*$', '') }}"
+    dest: /usr/local/mysql-shell
+    state: link
+    force: true
+    owner: mysql
+    group: mysql
+    mode: "0755"
+  check_mode: false
+
+# - name: Install mysql-shell
+#   ansible.builtin.package:
+#     name: /usr/local/src/{{ mysql_shell_download_url | basename }}
+#     state: present
 
 - name: Create Innodb Cluster admin user
   community.mysql.mysql_user:
@@ -32,25 +44,54 @@
     password: "{{ mysql_innodb_cluster_password }}"
     priv: "*.*:ALL,GRANT"
     state: "present"
+    sql_log_bin: false
+  tags:
+    - molecule-idempotence-notest
+    - skip_ansible_lint
+  when:
+    - _gr_primary_status is failed or _gr_primary_status.rowcount[0] == 0
+
+- name: Update Innodb Cluster admin user
+  community.mysql.mysql_user:
+    name: "{{ mysql_innodb_cluster_username }}"
+    host: "%"
+    password: "{{ mysql_innodb_cluster_password }}"
+    priv: "*.*:ALL,GRANT"
+    state: "present"
+    sql_log_bin: true
   run_once: true
   delegate_to: "{{ _primary_node }}"
   tags:
     - molecule-idempotence-notest
     - skip_ansible_lint
+  when:
+    - _gr_primary_status is defined
+    - "'rowcount' in _gr_primary_status"
+    - _gr_primary_status.rowcount[0] > 0
 
-- name: Create initcluster.js
-  template:
-    src: initcluster.js.j2
-    dest: /usr/share/mysqlsh/initcluster.js
+- name: Create initcluster.py
+  ansible.builtin.template:
+    src: initcluster.py.j2
+    dest: /usr/local/mysql-shell/initcluster.py
     mode: "0600"
 
 - name: Initial Innodb Cluster
-  shell: /usr/bin/mysqlsh --no-password --js --file=/usr/share/mysqlsh/initcluster.js
+  ansible.builtin.command:
+    cmd: /usr/local/mysql-shell/bin/mysqlsh --py --file=/usr/local/mysql-shell/initcluster.py
   register: _init_status
-  changed_when: "'InnoDB Cluster create successful' in _init_status.stdout"
+  changed_when: "'Waiting for server restart' in _init_status.stdout"
+  failed_when: "'InnoDB Cluster deployed successfully' not in _init_status.stdout"
   run_once: true
   delegate_to: "{{ _primary_node }}"
-  args:
-    warn: false
+  # args:
+  #   warn: false
   tags:
     - skip_ansible_lint
+
+- name: Create /etc/profile.d/mysql-shell.sh
+  ansible.builtin.copy:
+    content: "export PATH=/usr/local/mysql-shell/bin:$PATH"
+    dest: /etc/profile.d/mysql-shell.sh
+    mode: "0644"
+    owner: root
+    group: root

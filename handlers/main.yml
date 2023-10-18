@@ -9,6 +9,7 @@
   loop: "{{ ansible_play_hosts }}"
   when:
     - mysql_cluster_type in ['mgr', 'gr']
+    - _mysql_installed_version is not failed
 
 - name: restart mysql (Primary-Replicas)
   listen: restart mysql
@@ -16,6 +17,7 @@
     file: restart_primary_replica.yaml
   when:
     - mysql_cluster_type in ['ms', 'pr', 'ps']
+    - _mysql_installed_version is not failed
 
 - name: restart mha4mysql manager
   systemd:

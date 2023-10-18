@@ -100,7 +100,9 @@ binlog-row-image                    = FULL
 binlog-rows-query-log-events        = ON
 log-bin-trust-function-creators     = TRUE
 log_bin                             = mysql-bin
+{% if mysql_version is version('8.0.34', '<') %}
 binlog_format                       = ROW
+{% endif %}
 binlog_checksum                     = NONE
 binlog_expire_logs_seconds          = 604800 # 7 days, 8.0以前叫 expire_logs_days,只能精确到天
 binlog_transaction_dependency_tracking  = WRITESET
@@ -123,7 +125,7 @@ general_log_file                = {{ mysql_logdir | regex_replace("/$") }}/mysql
 
 # Error log
 log_error                       = {{ mysql_logdir | regex_replace("/$") }}/mysqld.error.log
-log_error_verbosity             = 3
+log_error_verbosity             = 2
 relay_log                       = mysql-relay
 relay_log_purge                 = 1
 {% if mysql_version is version('8.0.23', '<') %}
@@ -141,7 +143,9 @@ gtid_mode                                    = ON  # 开启 GTID 功能
 enforce_gtid_consistency                     = ON  # 开启强一致性
 
 # 基于主键的并行复制
+{% if mysql_version is version('8.0.29', '<') %}
 {{ _mysql_term_replica }}_parallel_type                          = LOGICAL_CLOCK
+{% endif %}
 {{ _mysql_term_replica }}_preserve_commit_order                  = 1
 {{ _mysql_term_replica }}_parallel_workers                       = {{ ansible_processor_vcpus * 2 }}
 
@@ -200,12 +204,10 @@ report_host                             = {{ hostvars[inventory_hostname]['ansib
 report_port                             = {{ mysql_port }}
 
 [client]
-default_character_set           = {{ mysql_character_set_server }}
 port                            = {{ mysql_port }}
 socket                          = {{ mysql_socket }}
 
 [mysql]
-default_character_set           = {{ mysql_character_set_server }}
 port                            = {{ mysql_port }}
 socket                          = {{ mysql_socket }}
 prompt                          = "\u@\h \D [\d]> "

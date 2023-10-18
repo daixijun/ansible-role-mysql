@@ -3,8 +3,14 @@
   hosts: all
   any_errors_fatal: yes
   tasks:
+    - name: Include epel role
+      ansible.builtin.include_role:
+        name: daixijun.epel
+      when:
+        - ansible_os_family == 'RedHat'
+
     - name: Include mysql role
-      include_role:
+      ansible.builtin.include_role:
         name: mysql
         apply:
           tags:
@@ -19,4 +25,4 @@
         mysql_users:
           - name: user1
             password: Ang4eij~aiSh4lu4tho5
-            priv: "db1.*:ALL"
+            priv: 'db1.*:ALL'

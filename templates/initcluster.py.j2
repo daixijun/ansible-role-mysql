@@ -1,0 +1,41 @@
+import sys
+
+cluster_name = "{{ mysql_cluster_name }}"
+admin_user = "{{ mysql_innodb_cluster_username }}"
+admin_pass = "{{ mysql_innodb_cluster_password }}"
+cluster = None
+
+print("Setting up InnoDB Cluster...\n")
+shell.connect(f"mysqlx://{admin_user}@{{ ansible_default_ipv4.address }}:33060", admin_pass)
+try:
+  cluster = dba.get_cluster(cluster_name)
+  print("InnoDB Cluster already exists.\n")
+except Exception:
+  print(f"Creating InnoDB Cluster '{cluster_name}'...\n")
+  cluster = dba.create_cluster(cluster_name)
+
+shell.connect_to_primary()
+
+cluster_status = cluster.status()
+
+cluster_node_list = [{% for host in groups[mysql_inventory_group] %}"{{ hostvars[host]['ansible_default_ipv4']['address'] }}:{{ mysql_port }}"{% if not loop.last %},{% endif %}{% endfor %}]
+for cluster_node in cluster_node_list:
+
+  if cluster_node in cluster_status['defaultReplicaSet']['topology']:
+    print(f"Instance '{cluster_node}' already in InnoDB Cluster '{cluster_name}'.\n")
+    continue
+  else:
+    check_instance_config_status = dba.check_instance_configuration(f"{admin_user}@{cluster_node}", password=admin_pass)
+    if check_instance_config_status['status'] == "ok":
+      dba.configure_instance(f"{admin_user}@{cluster_node}", password=admin_pass)
+
+    try:
+      print(f"Adding instance '{cluster_node}' to InnoDB Cluster '{cluster_name}'...\n")
+      cluster.add_instance(f"{admin_user}@{cluster_node}", password=admin_pass, recoveryMethod='clone')
+    except Exception as e:
+      print(f"{e['message']}\n")
+      sys.exit(1)
+
+cluster.disconnect()
+shell.disconnect()
+print('\nInnoDB Cluster deployed successfully.\n');

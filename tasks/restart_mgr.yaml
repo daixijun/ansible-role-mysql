@@ -4,16 +4,16 @@
     query: STOP GROUP_REPLICATION
 
 - name: Restart mysqld service
-  systemd:
+  ansible.builtin.systemd:
     name: mysqld.service
     state: restarted
     daemon_reload: true
 
 - name: Watting for mysqld service restarted
-  wait_for:
+  ansible.builtin.wait_for:
     path: "{{ mysql_socket }}"
+    delay: 30
     state: started
-
-- name: Start group replication
-  community.mysql.mysql_query:
-    query: START GROUP_REPLICATION
+# - name: Start group replication
+#   community.mysql.mysql_query:
+#     query: START GROUP_REPLICATION

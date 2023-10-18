@@ -9,29 +9,29 @@ lint: |
   ansible-lint -v
 platforms:
   - name: mysql1
-    image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
-    command: ${MOLECULE_DOCKER_COMMAND:-""}
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    image: verystar/${MOLECULE_DISTRO:-centos:7}
+    command: ${MOLECULE_DOCKER_COMMAND:-"/usr/sbin/init"}
+    # volumes:
+    #   - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
     pre_build_image: true
     groups:
       - mysql
   - name: mysql2
-    image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
-    command: ${MOLECULE_DOCKER_COMMAND:-""}
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    image: verystar/${MOLECULE_DISTRO:-centos:7}
+    command: ${MOLECULE_DOCKER_COMMAND:-"/usr/sbin/init"}
+    # volumes:
+    #   - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
     pre_build_image: true
     purge_networks: false
     groups:
       - mysql
   - name: mysql3
-    image: geerlingguy/docker-${MOLECULE_DISTRO:-centos7}-ansible:latest
-    command: ${MOLECULE_DOCKER_COMMAND:-""}
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    image: verystar/${MOLECULE_DISTRO:-centos:7}
+    command: ${MOLECULE_DOCKER_COMMAND:-"/usr/sbin/init"}
+    # volumes:
+    #   - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
     pre_build_image: true
     purge_networks: false
@@ -39,10 +39,10 @@ platforms:
       - mysql
 provisioner:
   name: ansible
-  inventory:
-    group_vars:
-      mysql:
-        mysql_download_url: ${MOLECULE_MYSQL_DOWNLOAD_URL}
+  # inventory:
+  #   group_vars:
+  #     mysql:
+  #       mysql_download_url: ${MOLECULE_MYSQL_DOWNLOAD_URL}
   config_options:
     defaults:
       verbosity: 2

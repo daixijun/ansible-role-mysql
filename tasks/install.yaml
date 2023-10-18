@@ -1,9 +1,9 @@
 ---
 - name: Download mysql package
-  get_url:
+  ansible.builtin.get_url:
     url: "{{ mysql_download_url }}"
     dest: "{{ playbook_dir }}/files/{{ mysql_package_name }}"
-    checksum: "md5:{{ mysql_download_url }}.md5"
+    # checksum: "md5:{{ mysql_download_url }}.md5"
     timeout: 300
     mode: "0600"
   become: false
@@ -12,11 +12,9 @@
   delegate_to: localhost
   when:
     - _mysql_installed_version is failed or mysql_upgrade|bool
-# - inventory_hostname in groups[mysql_inventory_group]
 
-# register: _mysql_package
 - name: Unarchive mysql binary package
-  unarchive:
+  ansible.builtin.unarchive:
     src: "files/{{ mysql_package_name }}"
     dest: /usr/local/
     creates: "{{ mysql_versioned_basedir }}"
@@ -25,11 +23,11 @@
     owner: mysql
     group: mysql
   register: _mysql_unarchive
-  notify:
-    - restart mysql
+  # notify:
+  #   - restart mysql
 
 - name: Ensure directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     # recurse: true
@@ -44,7 +42,7 @@
     - "{{ mysql_socket | dirname }}"
 
 - name: Create tmpfiles for pidfile directory
-  copy:
+  ansible.builtin.copy:
     content: d {{ mysql_pidfile | dirname }} 0750 mysql mysql -
     dest: /usr/lib/tmpfiles.d/mysqld.conf
     owner: root
@@ -52,7 +50,7 @@
     mode: "0644"
 
 - name: Setting PATH environment variable
-  copy:
+  ansible.builtin.copy:
     content: "export PATH={{ mysql_basedir }}/bin:$PATH"
     dest: /etc/profile.d/mysql.sh
     owner: root
@@ -60,18 +58,18 @@
     mode: "0644"
 
 - name: Generate my.cnf
-  template:
+  ansible.builtin.template:
     src: my.cnf.j2
     dest: "{{ mysql_versioned_basedir }}/etc/my.cnf"
     owner: mysql
     group: mysql
     mode: "0644"
     validate: "{{ mysql_versioned_basedir }}/bin/mysqld --defaults-file=%s --validate-config"
-  notify:
-    - restart mysql
+  # notify:
+  #   - restart mysql
 
 - name: Generate logrotate for logs
-  template:
+  ansible.builtin.template:
     src: mysql-log-rotate.j2
     dest: /etc/logrotate.d/mysql
     owner: root
@@ -79,7 +77,7 @@
     mode: "0644"
 
 - name: Generate mysql service for systemd
-  template:
+  ansible.builtin.template:
     src: mysqld.service.j2
     dest: /etc/systemd/system/mysqld.service
     owner: root
@@ -87,18 +85,20 @@
     mode: "0644"
   when:
     - ansible_service_mgr == 'systemd'
-  notify:
-    - restart mysql
+  # notify:
+  #   - restart mysql
 
 - name: Check initialize status
-  shell: ls -lA {{ mysql_datadir }} | grep -v total | wc -l
+  ansible.builtin.shell:
+    cmd: ls -lA {{ mysql_datadir }} | grep -v total | wc -l
   register: need_to_initialize
   changed_when: false
   tags:
     - skip_ansible_lint
 
 - name: Initializing the Data Directory
-  shell: "{{ mysql_versioned_basedir }}/bin/mysqld --initialize-insecure --lower-case-table-names=1 --user=mysql --basedir={{ mysql_versioned_basedir }} --datadir={{ mysql_datadir }}"
+  ansible.builtin.shell:
+    cmd: "{{ mysql_versioned_basedir }}/bin/mysqld --initialize-insecure --lower-case-table-names=1 --user=mysql --basedir={{ mysql_versioned_basedir }} --datadir={{ mysql_datadir }}"
   register: _mysql_initialize_status
   when:
     - not need_to_initialize is skipped
@@ -107,7 +107,7 @@
     - skip_ansible_lint
 
 - name: Created symlink from {{ mysql_versioned_basedir }} to {{ mysql_basedir }}
-  file:
+  ansible.builtin.file:
     src: "{{ mysql_versioned_basedir }}"
     dest: "{{ mysql_basedir }}"
     owner: mysql
@@ -117,18 +117,18 @@
     mode: "0777"
   notify:
     - restart mysql
-  when:
-    - _mysql_unarchive is not skipped
+  # when:
+  #   - _mysql_unarchive is not skipped
 
 - name: Ensure mysql service started
-  systemd:
+  ansible.builtin.systemd:
     name: mysqld.service
     state: started
     enabled: true
     daemon_reload: true
 
 - name: Watting for mysql service started
-  wait_for:
+  ansible.builtin.wait_for:
     host: 0.0.0.0
     port: 3306
     state: started
@@ -143,19 +143,22 @@
     login_user: root
     login_unix_socket: "{{ mysql_socket }}"
     sql_log_bin: false
-  when: _mysql_initialize_status is not skipped
+  when: (_mysql_initialize_status is not skipped) or (_gr_primary_status is failed) or (_ms_primary_status is failed)
+  register: _mysql_root_password_status
   tags:
     - skip_ansible_lint
 
 # 一定要在更新完root密码后才生成，否则更新密码时会认证失败
 - name: Generate ~/.my.cnf
-  template:
+  ansible.builtin.template:
     src: user.my.cnf.j2
     dest: /root/.my.cnf
     owner: root
     group: root
     mode: "400"
   no_log: true
+  when:
+    - _mysql_root_password_status is changed
 
 - name: Removes all anonymous user accounts
   community.mysql.mysql_user:

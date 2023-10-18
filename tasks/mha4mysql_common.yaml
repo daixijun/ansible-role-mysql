@@ -1,6 +1,6 @@
 ---
 - name: mysql | mha | common | Installing mha4mysql dependencies
-  yum:
+  ansible.builtin.package:
     name:
       - perl-CPAN
       - perl-DBD-MySQL
@@ -14,7 +14,7 @@
     update_cache: true
 
 - name: mysql | mha | common | Create mha4mysql directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: root
@@ -36,7 +36,7 @@
   register: _mysql_enable_root_login_remotely
 
 - name: mysql | mha | common | Restart sshd service
-  systemd:
+  ansible.builtin.systemd:
     name: sshd.service
     state: restarted
     daemon_reload: true
@@ -44,14 +44,14 @@
     - _mysql_enable_root_login_remotely is changed
 
 - name: mysql | mha | common | Watting for sshd service started
-  wait_for:
+  ansible.builtin.wait_for:
     host: 0.0.0.0
     port: "{{ mysql_mha_ssh_port }}"
     state: started
     timeout: 10
 
 - name: mysql | mha | common | Create {{ mysql_mha_ssh_user }} .ssh directory
-  file:
+  ansible.builtin.file:
     path: "{{ (mysql_mha_ssh_user == 'root') | ternary('/root', '/home/'+mysql_mha_ssh_user) }}/.ssh"
     owner: "{{ mysql_mha_ssh_user }}"
     group: "{{ mysql_mha_ssh_user }}"
@@ -76,7 +76,7 @@
   loop: "{{ ansible_play_batch }}"
 
 - name: mysql | mha | common | Download mha4mysql manager and node rpm packages
-  get_url:
+  ansible.builtin.get_url:
     url: "{{ item }}"
     dest: "{{ playbook_dir }}/files/{{ item | basename }}"
     timeout: 300
@@ -89,7 +89,7 @@
     - "{{ mysql_mha_node_download_url }}"
 
 - name: mysql | mha | common | Checking master vip
-  shell:
+  ansible.builtin.shell:
     cmd: ip add show {{ mysql_interface if mysql_interface|length >0 else ansible_default_ipv4.interface }}
     warn: false
   delegate_to: "{{ _primary_node }}"
@@ -101,7 +101,7 @@
     - skip_ansible_lint
 
 - name: mysql | mha | common | Adding vip to master node
-  shell:
+  ansible.builtin.shell:
     cmd: ip address add {{ mysql_mha_vip }} dev {{ mysql_interface if mysql_interface|length >0 else ansible_default_ipv4.interface }}
     warn: false
   delegate_to: "{{ _primary_node }}"

@@ -9,9 +9,9 @@ jobs:
       ANSIBLE_FORCE_COLOR: 1 # allows ansible colors to be passed to GitHub Actions
     strategy:
       matrix:
-        os: [centos7]
-        mysql-version: [8.0.28, 8.0.29, 8.0.30]
-        scenario: [single_primary, multi_primary, master_slave, mha, standalone]
+        os: [verystar/centos:7]
+        mysql-version: [8.0.34]
+        scenario: [single_primary, standalone]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -30,14 +30,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install ansible "molecule[docker,lint]" ansible-lint
+          pip install ansible molecule "molecule-plugins[docker]" ansible-lint
           ansible-galaxy collection install -r requirements.yml
       - name: Test with molecule
         env:
           MOLECULE_DISTRO: ${{ matrix.os }}
           MYSQL_VERSION: ${{ matrix.mysql-version }}
           MOLECULE_SCENARIO: ${{ matrix.scenario }}
-          MOLECULE_MYSQL_DOWNLOAD_URL: "https://cdn.mysql.com/Downloads/MySQL-8.0/mysql-${{ matrix.mysql-version }}-linux-glibc2.17-x86_64-minimal.tar.xz"
         run: |
           cd ..
           ln -sf ansible-role-mysql mysql

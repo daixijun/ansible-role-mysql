@@ -1,6 +1,7 @@
 ---
 - name: Import check vars tasks
-  import_tasks: check_vars.yaml
+  ansible.builtin.import_tasks:
+    file: check_vars.yaml
   when:
     - inventory_hostname in groups[mysql_inventory_group]
   tags:
@@ -8,31 +9,34 @@
     - check
 
 - name: Import prepare tasks
-  import_tasks: prepare.yaml
+  ansible.builtin.import_tasks:
+    file: prepare.yaml
   tags:
     - always
     - prepare
 
-- name: Include install tasks
-  include_tasks: install.yaml
+- name: Include install jemalloc tasks
+  ansible.builtin.include_tasks:
+    file: install_jemalloc.yaml
   when:
-    - inventory_hostname in groups[mysql_inventory_group]
+    - ansible_architecture in ['aarch64']
+    - ansible_distribution_major_version in ['7']
+    - ansible_os_family in ['RedHat']
+  tags:
+    - always
+    - install
 
-- name: Include group replication tasks
-  include_tasks:
-    file: group_replication.yaml
-    apply:
-      tags:
-        - gr
-        - ic
+- name: Include install tasks
+  ansible.builtin.include_tasks:
+    file: install.yaml
   when:
-    - mysql_cluster_type == 'mgr'
     - inventory_hostname in groups[mysql_inventory_group]
   tags:
     - always
+    - install
 
 - name: Include mysql shell tasks
-  include_tasks:
+  ansible.builtin.include_tasks:
     file: mysql_shell.yaml
     apply:
       tags:
@@ -45,7 +49,7 @@
     - always
 
 - name: Include replication tasks
-  include_tasks:
+  ansible.builtin.include_tasks:
     file: master_slave.yaml
     apply:
       tags:
@@ -58,17 +62,19 @@
     - always
 
 - name: Import create database tasks
-  import_tasks: create_database.yaml
+  ansible.builtin.import_tasks:
+    file: create_database.yaml
   run_once: true
   delegate_to: "{{ _primary_node }}"
 
 - name: Import create user tasks
-  import_tasks: create_user.yaml
+  ansible.builtin.import_tasks:
+    file: create_user.yaml
   run_once: true
   delegate_to: "{{ _primary_node }}"
 
 - name: import mha4mysql common tasks
-  include_tasks:
+  ansible.builtin.include_tasks:
     file: mha4mysql_common.yaml
     apply:
       tags:
@@ -80,7 +86,7 @@
     - always
 
 - name: import mha4mysql node tasks
-  include_tasks:
+  ansible.builtin.include_tasks:
     file: mha4mysql_node.yaml
     apply:
       tags:
@@ -94,7 +100,7 @@
     - mha-node
 
 - name: import mha4mysql manager tasks
-  include_tasks:
+  ansible.builtin.include_tasks:
     file: mha4mysql_manager.yaml
     apply:
       tags:

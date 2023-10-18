@@ -6,13 +6,13 @@
     - inventory_hostname != _primary_node
 
 - name: Restart mysqld service
-  systemd:
+  ansible.builtin.systemd:
     name: mysqld.service
     state: restarted
     daemon_reload: true
 
 - name: Watting for mysqld service restarted
-  wait_for:
+  ansible.builtin.wait_for:
     path: "{{ mysql_socket }}"
     state: started
 

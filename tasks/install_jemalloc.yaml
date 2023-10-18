@@ -1,0 +1,42 @@
+---
+- name: Download jemalloc package
+  ansible.builtin.get_url:
+    url: "https://github.com/jemalloc/jemalloc/releases/download/5.3.0/jemalloc-5.3.0.tar.bz2"
+    dest: "{{ playbook_dir }}/files/jemalloc-5.3.0.tar.bz2"
+    timeout: 300
+    mode: "0600"
+  become: false
+  check_mode: false
+  run_once: true
+  delegate_to: localhost
+
+- name: Unarchive jemalloc binary package
+  ansible.builtin.unarchive:
+    src: "files/jemalloc-5.3.0.tar.bz2"
+    dest: /opt/
+    creates: "/opt/jemalloc-5.3.0"
+    remote_src: false
+    mode: "0755"
+  register: _jemalloc_unarchive
+
+- name: Configure jemalloc
+  ansible.builtin.shell:
+    chdir: /opt/jemalloc-5.3.0
+    cmd: ./configure --prefix=/usr/local/jemalloc
+  register: _jemalloc_configure
+  when:
+    - _jemalloc_unarchive is changed
+
+- name: Compile jemalloc
+  community.general.make:
+    chdir: /opt/jemalloc-5.3.0
+  register: _jemalloc_compile
+  when:
+    - _jemalloc_configure is changed
+
+- name: Install jemalloc
+  community.general.make:
+    chdir: /opt/jemalloc-5.3.0
+    target: install
+  when:
+    - _jemalloc_compile is changed

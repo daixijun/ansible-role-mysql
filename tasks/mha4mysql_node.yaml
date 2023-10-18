@@ -1,6 +1,6 @@
 ---
 - name: mysql | mha | node | Copy rpm package to target server
-  copy:
+  ansible.builtin.copy:
     src: "{{ playbook_dir }}/files/{{ mysql_mha_node_download_url | basename }}"
     dest: "/usr/local/src/{{ mysql_mha_node_download_url | basename }}"
     owner: root
@@ -8,6 +8,6 @@
     mode: "0644"
 
 - name: mysql | mha | node | Installing
-  yum:
+  ansible.builtin.package:
     name: /usr/local/src/{{ mysql_mha_node_download_url | basename }}
     state: present

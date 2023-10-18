@@ -5,14 +5,14 @@
   gather_facts: false
   tasks:
     - name: Find downloaded packages
-      find:
-        path: "{{ playbook_dir }}/files"
-        patterns: "*.tar.*,*.rpm"
+      ansible.builtin.find:
+        path: '{{ playbook_dir }}/files'
+        patterns: '*.tar.*,*.rpm'
         file_type: file
       register: __find_packages
 
     - name: Cleanup packages
-      file:
-        path: "{{ item.path }}"
+      ansible.builtin.file:
+        path: '{{ item.path }}'
         state: absent
-      loop: "{{ __find_packages.files }}"
+      loop: '{{ __find_packages.files }}'
