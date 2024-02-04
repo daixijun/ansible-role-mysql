@@ -20,7 +20,8 @@
     host: "%"
     priv:
       "*.*": USAGE,REPLICATION CLIENT
-      "sys.*": SELECT
+      "performance_schema.replication_group_member_stats": SELECT
+      "performance_schema.replication_group_members": SELECT
     state: present
   run_once: true
   delegate_to: "{{ _primary_node }}"
