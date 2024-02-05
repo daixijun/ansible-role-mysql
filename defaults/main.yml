@@ -1,5 +1,5 @@
 ---
-mysql_version: 8.0.34
+mysql_version: 8.0.36
 mysql_privoder: oracle # greatsql
 mysql_shell_version:
 mysql_mha_version: 0.58
@@ -19,7 +19,7 @@ mysql_bind_address: 0.0.0.0
 mysql_back_log: 8192
 mysql_root_password: ""
 mysql_interface: "" # 指定网卡，默认使用除lo外的第一张
-mysql_sql_mode: ""
+mysql_sql_mode: "" ## 官方默认值为 "ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
 mysql_default_time_zone: "+8:00"
 mysql_character_set_server: utf8mb4
 mysql_collation_server: utf8mb4_general_ci
