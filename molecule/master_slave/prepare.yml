@@ -1,0 +1,18 @@
+---
+- name: Prepary
+  hosts: all
+  any_errors_fatal: yes
+  tasks:
+    - name: Install iproute
+      vars:
+        package_name:
+          Debian:
+            - iproute2
+            - iputils-ping
+          RedHat:
+            - iproute
+            - iputils
+      ansible.builtin.package:
+        name: "{{ package_name[ansible_os_family] }}"
+        state: present
+        update_cache: true
