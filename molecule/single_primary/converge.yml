@@ -3,11 +3,6 @@
   hosts: all
   any_errors_fatal: yes
   tasks:
-    - name: Epel
-      ansible.builtin.import_role:
-        name: daixijun.epel
-      when:
-        - ansible_os_family == 'RedHat'
     - name: MySQL
       ansible.builtin.import_role:
         name: mysql

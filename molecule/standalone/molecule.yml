@@ -10,8 +10,8 @@ platforms:
   - name: mysql1
     image: verystar/${MOLECULE_DISTRO:-centos:7}
     command: ${MOLECULE_DOCKER_COMMAND:-"/usr/sbin/init"}
-    # volumes:
-    #   - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
     pre_build_image: true
     groups:
@@ -25,6 +25,6 @@ provisioner:
   config_options:
     defaults:
       verbosity: 2
-      vault_password_file: ${MOLECULE_SCENARIO_DIRECTORY}/vault.pw
+      # vault_password_file: ${MOLECULE_SCENARIO_DIRECTORY}/vault.pw
 verifier:
   name: ansible

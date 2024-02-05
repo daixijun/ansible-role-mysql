@@ -3,12 +3,6 @@
   hosts: all
   any_errors_fatal: yes
   tasks:
-    - name: Include epel role
-      ansible.builtin.include_role:
-        name: daixijun.epel
-      when:
-        - ansible_os_family == 'RedHat'
-
     - name: Include mysql role
       ansible.builtin.include_role:
         name: mysql
@@ -20,6 +14,7 @@
         mysql_root_password: ieng8Taibonga6dair0j
         mysql_repl_password: Ad5sa7aer7eiN3goo2be
         mysql_group_replication_name: cdbdc06c-2023-4d20-9821-272f160ef4f6
+        mysql_sql_mode: 'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'
         mysql_databases:
           - name: db1
         mysql_users:
