@@ -9,8 +9,8 @@ jobs:
       ANSIBLE_FORCE_COLOR: 1 # allows ansible colors to be passed to GitHub Actions
     strategy:
       matrix:
-        os: ["verystar/centos:7"]
-        mysql-version: [8.0.34]
+        os: ['centos:7', 'ubuntu:22.04', 'ubuntu:20.04', 'ubuntu:23.04']
+        mysql-version: [8.0.34, 8.0.35, 8.0.36]
         scenario: [single_primary, standalone]
     steps:
       - name: Checkout
